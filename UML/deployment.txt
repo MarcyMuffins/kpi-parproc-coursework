@@ -1,17 +1,17 @@
-node "Client Device" as ClientDevice {
+node "Client Device" as client{
   [Client Application]
 }
 
-node "Admin Device" as AdminDevice {
+node "Admin Device" as admin{
   [Admin Interface]
 }
 
-node "File Search and Logging Server" as CombinedServer {
+node "File Search Server" as server{
   [Search Service]
   [Indexing Service]
   [Logging Service]
 }
 
-ClientDevice --> CombinedServer : Search Queries
-AdminDevice --> CombinedServer : Update Index Requests, View Logs
+client --> server: Search Queries
+admin --> server: Update Index Requests, View Logs
 @enduml```
