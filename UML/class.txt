@@ -1,0 +1,93 @@
+@startuml
+left to right direction
+class server{
+     {field} -PORT : int
+     {field} -pool : thread_pool
+     {field} -is_logging : bool
+     {field} -file_index : inverted_index
+     {field} -event_log : std::vector<event>
+     {method} +init(bool is_logging) : int
+     {method} -process_connection() : void
+     {method} -function_user() : void
+     {method} -function_admin() : void
+     {method} 
+}
+
+struct event{
+     {field} timestamp : time_t
+     {field} client_ip : std::string
+     {field} result : std::string
+}
+
+class thread_pool{
+     {field} -task_status : struct
+     {field} -m_rw_lock : mutable std::shared_mutex
+     {field} -m_status_lock : mutable std::shared_mutex
+     {field} -m_print_lock : mutable std::shared_mutex
+     {field} -m_task_waiter : mutable std::condition_variable_any
+     {field} -m_workers : std::vector<std::thread>
+     {field} -m_tasks : task_queue<std::function<std::string()>>
+     {field} -m_task_status : std::unordered_map<size_t, TaskStatus> 
+     {field} -m_initialized : bool 
+     {field} -m_terminated : bool
+
+     {method} +initialize(const size_t worker_count, bool debug_mode) : void
+     {method} +terminate() : void
+     {method} +terminate_now() : void
+     {method} +debug_terminate() : void
+     {method} +routine() : void
+     {method} +working() : bool
+     {method} +working_unsafe() : bool
+     {method} +add_task(task_t&& task, arguments&&... parameters) : size_t
+     {method} +get_status(size_t id, std::string& res) : size_t
+}
+
+struct task_status{
+     {field} status : enum status
+     {field} result : std::string
+}
+
+enum status{
+     Waiting
+     Working
+     Finished
+}
+
+class task_queue{
+     {field} -mutable read_write_lock m_rw_lock;
+     {field} -std::queue<task_type_t> m_tasks;
+     {field} -std::queue<size_t> m_ids;
+
+     {method} +bool empty() const;
+     {method} +size_t size() const;
+     {method} +void clear();
+     {method} +bool pop(task_type_t& task, size_t& id);
+     {method} +size_t emplace(arguments&&... parameters)
+}
+
+class inverted_index{
+     {field} -word : struct
+     {field} -dict : std::map<string,vector<word>> 
+     {field} -files : std::vector<string> 
+     {method} +add_file(std:string filename) : void 
+     {method} +list_files() : void 
+     {method} +search(std::string word_query, bool show_context) : void 
+}
+
+struct word{
+     {field} filename : string
+     {field} line : int
+     {field} col : int
+}
+
+
+server::pool <.. thread_pool
+server::event_log <-- event
+thread_pool::m_tasks <.. task_queue
+thread_pool::task_status <-- task_status
+task_status::status <-- status
+
+
+server::file_index <.. inverted_index
+inverted_index::word <-- word
+@enduml

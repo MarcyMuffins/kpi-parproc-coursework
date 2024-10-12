@@ -1,0 +1,75 @@
+@startuml
+actor Client as client
+participant "Main Server Thread" as server
+participant "Client Thread" as client_thread
+participant "Thread Pool" as thread_pool
+database "Inverted Index" as index
+
+== Initialization ==
+
+server -> thread_pool : Create Thread Pool
+server -> index : Build Index
+
+== Client Connection ==
+
+client -> server : Start Connection
+server -> client_thread : Create Thread
+
+== Client Requests ==
+
+client -> client_thread : Send query type (search)
+client -> client_thread : Send search query
+client_thread -> thread_pool : Start task
+thread_pool -> index : Start search
+client -> client_thread : Request search status
+client_thread -> thread_pool : Get task status
+thread_pool --> client_thread : Task status
+client_thread --> client : Current task status (in progress)
+...
+index --> thread_pool : Search result
+...
+client_thread -> thread_pool : Get task status
+thread_pool --> client_thread : Task status
+client_thread --> client : Current task status (complete, result)
+
+== Admin Request (Adding File) ==
+
+client -> client_thread : Send query type (add file)
+client -> client_thread : Send filename
+client_thread -> thread_pool : Start task
+thread_pool -> index : Add file
+client -> client_thread : Request adding file status
+client_thread -> thread_pool : Get task status
+thread_pool --> client_thread : Task status
+client_thread --> client : Current task status (in progress)
+...
+index --> thread_pool : Error: No such file found
+...
+client_thread -> thread_pool : Get task status
+thread_pool --> client_thread : Task status
+client_thread --> client : Current task status (Error: No such file found)
+
+client -> client_thread : Send filename
+client_thread -> thread_pool : Start task
+thread_pool -> index : Add file
+client -> client_thread : Request adding file status
+client_thread -> thread_pool : Get task status
+thread_pool --> client_thread : Task status
+client_thread --> client : Current task status (in progress)
+...
+index --> thread_pool : File added successfully 
+...
+client_thread -> thread_pool : Get task status
+thread_pool --> client_thread : Task status
+client_thread --> client : Current task status (success)
+
+== Admin Request (Review Log) ==
+
+client -> client_thread : Send query type (print log)
+client_thread --> client : Send log size
+client_thread --> client : Send log part 1
+...
+client_thread --> client : Send log part N
+
+
+@enduml

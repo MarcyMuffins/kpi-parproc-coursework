@@ -1,0 +1,24 @@
+@startuml
+left to right direction
+
+actor Client as C
+actor Admin as A
+
+rectangle "File Search Server" as server {
+usecase "Word search query" as SearchQuery
+usecase "Building the inverted index" as BuildIndex
+usecase "Adding files to the index" as UpdateIndex
+usecase "Client request processing" as ProcessClientRequest
+usecase "Searching query in the index" as SearchInIndex
+usecase "Event logging" as EventLogging
+}
+
+C -- SearchQuery
+A -- UpdateIndex
+A -- EventLogging
+
+
+SearchQuery .> ProcessClientRequest : <<include>>
+ProcessClientRequest .> SearchInIndex : <<include>>
+BuildIndex .> UpdateIndex : <<include>>
+@enduml
