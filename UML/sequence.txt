@@ -28,6 +28,7 @@ client_thread --> client : Current task status (in progress)
 ...
 index --> thread_pool : Search result
 ...
+client -> client_thread : Request search status
 client_thread -> thread_pool : Get task status
 thread_pool --> client_thread : Task status
 client_thread --> client : Current task status (complete, result)
@@ -45,6 +46,7 @@ client_thread --> client : Current task status (in progress)
 ...
 index --> thread_pool : Error: No such file found
 ...
+client -> client_thread : Request adding file status
 client_thread -> thread_pool : Get task status
 thread_pool --> client_thread : Task status
 client_thread --> client : Current task status (Error: No such file found)
@@ -59,6 +61,7 @@ client_thread --> client : Current task status (in progress)
 ...
 index --> thread_pool : File added successfully 
 ...
+client -> client_thread : Request adding file status
 client_thread -> thread_pool : Get task status
 thread_pool --> client_thread : Task status
 client_thread --> client : Current task status (success)
