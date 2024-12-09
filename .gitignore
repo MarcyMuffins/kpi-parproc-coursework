@@ -2,5 +2,5 @@
 code/db/
 code/test_db/
 code/test_utf/
-code/InvertedIndexClient/
-code/InvertedIndexServer/
+code/InvertedIndexClient/x64/
+code/InvertedIndexServer/x64/
