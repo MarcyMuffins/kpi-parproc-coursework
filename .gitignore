@@ -2,9 +2,5 @@
 code/db/
 code/test_db/
 code/test_utf/
-code/InvertedIndexClient/.vs/
-code/InvertedIndexClient/.x64/
-code/InvertedIndexClient/Inverted.fed0f038/
-code/InvertedIndexServer/.vs/
-code/InvertedIndexServer/.x64/
-code/InvertedIndexServer/Inverted.d2803445/
+code/InvertedIndexClient/
+code/InvertedIndexServer/
