@@ -4,3 +4,5 @@ code/test_db/
 code/test_utf/
 code/InvertedIndexClient/x64/
 code/InvertedIndexServer/x64/
+code/InvertedIndexClient/.vs/
+code/InvertedIndexServer/.vs/
