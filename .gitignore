@@ -1,0 +1,4 @@
+# ignore all text file folders
+code/db
+code/test_db
+code/test_utf
