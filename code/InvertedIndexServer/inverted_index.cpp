@@ -88,7 +88,7 @@ inverted_index::inverted_index(std::vector<std::string>& filenames) {
         std::vector<std::string> temp;
         while (stream >> word) {
             if (std::count(dict[word].begin(), dict[word].end(), i) == 0) {
-                dict[word].emplace_back(i);
+                dict[word].push_back(i);
             }
         }
         if (DEBUG) {
@@ -127,7 +127,7 @@ void inverted_index::add_file(std::string& filename) {
     std::vector<std::string> temp;
     while (stream >> word) {
         if (std::count(dict[word].begin(), dict[word].end(), filename) == 0) {
-            dict[word].emplace_back(filename);
+            dict[word].push_back(filename);
         }
     }
 }
@@ -182,6 +182,17 @@ std::vector<std::string> inverted_index::search(std::vector<std::string>& word_q
         */
         //debug
 
+        //How the next bit SHOULD work
+        /*
+        Find list of files from the first query
+
+        For every word in the query after it 
+            Fetch next list of files for the next word
+
+        
+        
+        */
+            
         std::vector<std::string> overlapped_found_files;
         //going through every subsequent word in the query
         for (int i = 1; i < word_query.size(); i++) {
@@ -191,11 +202,13 @@ std::vector<std::string> inverted_index::search(std::vector<std::string>& word_q
                 for (int k = 0; k < next_found_files.size(); k++) {
                     if (found_files[j] == next_found_files[k] 
                         && std::count(overlapped_found_files.begin(), overlapped_found_files.end(), found_files[j]) == 0) {
-                        overlapped_found_files.emplace_back(found_files[j]);
+                        overlapped_found_files.push_back(found_files[j]);
                     }
                 }
             }
+            found_files = overlapped_found_files;
+            overlapped_found_files.clear();
         }
-        return overlapped_found_files;
+        return found_files;
     }
 }

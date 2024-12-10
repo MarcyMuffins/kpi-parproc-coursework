@@ -29,9 +29,9 @@ std::string options[10] = { "vampyr", "the", "woman", "movie" , "and" , "of" , "
 std::pair<std::vector<std::string>, std::vector<std::string>> task(inverted_index& index) {
     //size_t time = distrib3(gen);
     //std::this_thread::sleep_for(std::chrono::milliseconds(time));
-
+    // movie vampyr of man
     int amount = distrib1(gen);
-    std::vector<std::string> words;
+    std::vector<std::string> words;// = { "vampyr", "movie", "of", "man" };
     for (int i = 0; i < amount; i++) {
         words.push_back(options[distrib2(gen)]);
     }
@@ -65,6 +65,8 @@ int main()
     std::cout << "Building the file index." << std::endl;
     inverted_index index(files);
     std::cout << "Done." << std::endl;
+
+
     std::cout << "Do you want to print out the index? (It will be really long) y/n" << std::endl;
     std::cin >> p;
     if (p == "y") {
@@ -81,7 +83,7 @@ int main()
         //std::cout << "Added task " << id << " to the thread pool." << std::endl;
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     pool.terminate_now();
 
     while (true) {

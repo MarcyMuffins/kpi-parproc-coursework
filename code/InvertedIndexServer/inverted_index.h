@@ -21,8 +21,8 @@ private:
 	//list of files already processed
 	std::vector<std::string> files;
 	mutable read_write_lock m_rw_lock;
-
 	std::string clean_string(std::string input);
+
 public:
 	inverted_index(std::vector<std::string>& filenames);
 	void add_file(std::string& filename);
