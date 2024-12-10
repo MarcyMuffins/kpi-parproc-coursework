@@ -5,8 +5,14 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <thread>
+#include <shared_mutex>
 
 //TODO: Add word position tracking?
+
+using read_write_lock = std::shared_mutex;
+using read_lock = std::shared_lock<read_write_lock>;
+using write_lock = std::unique_lock<read_write_lock>;
 
 class inverted_index {
 private:
@@ -14,6 +20,7 @@ private:
 	std::map<std::string, std::vector<std::string>> dict;
 	//list of files already processed
 	std::vector<std::string> files;
+	mutable read_write_lock m_rw_lock;
 
 	std::string clean_string(std::string input);
 public:

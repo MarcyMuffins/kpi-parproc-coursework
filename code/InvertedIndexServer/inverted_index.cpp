@@ -10,6 +10,8 @@
 
 //TODO: Add word position tracking?
 
+#define DEBUG true
+
 std::string inverted_index::clean_string(std::string input) {
     std::string cleaned;
 
@@ -59,7 +61,7 @@ std::string inverted_index::clean_string(std::string input) {
 
 
 inverted_index::inverted_index(std::vector<std::string>& filenames) {
-    std::cout << "Started filling index." << std::endl;
+    write_lock _(m_rw_lock);
     int count = 0;
     int progress = 0;
     int size = filenames.size();
@@ -89,18 +91,20 @@ inverted_index::inverted_index(std::vector<std::string>& filenames) {
                 dict[word].emplace_back(i);
             }
         }
-        count++;
-        if (count >= size / 10) {
-            count = 0;
-            progress += 10;
-            std::cout << progress << "%" << std::endl;
+        if (DEBUG) {
+            count++;
+            if (count >= size / 10) {
+                count = 0;
+                progress += 10;
+                std::cout << progress << "%" << std::endl;
+            }
         }
     }
-    std::cout << "Done." << std::endl;
 }
 
 
 void inverted_index::add_file(std::string& filename) {
+    write_lock _(m_rw_lock);
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Unable to open the file!" << std::endl;
@@ -139,6 +143,7 @@ void inverted_index::debug_list_files() {
 }
 
 std::vector<std::string> inverted_index::search(std::vector<std::string>& word_query) {
+    read_lock _(m_rw_lock);
     std::vector<std::string> found_files;
     if (word_query.size() == 0) {
         return found_files;

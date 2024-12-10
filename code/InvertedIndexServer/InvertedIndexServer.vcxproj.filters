@@ -26,5 +26,11 @@
     <ClInclude Include="inverted_index.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="task_queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thread_pool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
