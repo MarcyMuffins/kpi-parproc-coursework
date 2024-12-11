@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <iostream>
+#include <string>
 
 using std::chrono::nanoseconds;
 using std::chrono::duration_cast;
@@ -26,7 +27,7 @@ public:
 public:
 	template <typename task_t, typename... arguments>
 	inline size_t add_task(task_t&& task, arguments&&... parameters);
-	std::pair<std::vector<std::string>, std::vector<std::string>> get_status(size_t id);
+	std::pair<std::vector<std::wstring>, std::vector<std::wstring>> get_status(size_t id);
 public:
 	thread_pool(const thread_pool& other) = delete;
 	thread_pool(thread_pool&& other) = delete;
@@ -39,15 +40,15 @@ private:
 			Working,
 			Finished
 		} status;
-		std::vector<std::string> words;
-		std::vector<std::string> files;
+		std::vector<std::wstring> words;
+		std::vector<std::wstring> files;
 	};
 	mutable read_write_lock m_rw_lock;
 	mutable read_write_lock m_status_lock;
 	mutable read_write_lock m_print_lock;
 	mutable std::condition_variable_any m_task_waiter;
 	std::vector<std::thread> m_workers;
-	task_queue<std::function<std::pair<std::vector<std::string>, std::vector<std::string>>()>> m_tasks;
+	task_queue<std::function<std::pair<std::vector<std::wstring>, std::vector<std::wstring>>()>> m_tasks;
 	std::unordered_map<size_t, TaskStatus> m_task_status;
 	std::unordered_map<size_t, std::chrono::time_point<std::chrono::system_clock>> m_debug_queue_time;
 	double m_wait_time = 0.0;
@@ -79,7 +80,7 @@ void thread_pool::initialize(const size_t worker_count, bool debug_mode = false)
 	m_debug = debug_mode;
 	if (m_debug == true) {
 		m_print_lock.lock();
-		printf("STR: Initializing %zu workers.\n", worker_count);
+		std::wcout << L"STR: Initializing " << worker_count << L" workers.\n" << std::endl;
 		m_print_lock.unlock();
 	}
 	m_workers.reserve(worker_count);
@@ -99,7 +100,7 @@ void thread_pool::routine()
 		bool task_acquired = false;
 		size_t task_id = -1;
 		size_t queue_len = 0;
-		std::function<std::pair<std::vector<std::string>, std::vector<std::string>>()> task;
+		std::function<std::pair<std::vector<std::wstring>, std::vector<std::wstring>>()> task;
 		{
 			write_lock _(m_rw_lock);
 			auto wait_condition = [this, &task_acquired, &task_id, &task, &queue_len] {
@@ -121,17 +122,17 @@ void thread_pool::routine()
 			m_wait_time += elapsed.count() * 1e-6;
 			m_avg_read_cnt++;
 			m_avg_queue_len += queue_len;
-			printf("WRK: Task ID %2zu began working. Queue wait time %.3f miliseconds.\n", task_id, elapsed.count() * 1e-6);
+			std::wcout << std::setprecision(3) << L"WRK: Task ID " << task_id << L" began working. Queue wait time " << elapsed.count() * 1e-6 << " miliseconds." << std::endl;
 			m_print_lock.unlock();
 		}
-		std::pair<std::vector<std::string>, std::vector<std::string>> res = task();
+		std::pair<std::vector<std::wstring>, std::vector<std::wstring>> res = task();
 		m_task_status[task_id].words = res.first;
 		m_task_status[task_id].files = res.second;
 		m_task_status[task_id].status = thread_pool::TaskStatus::Status::Finished;
 		if (m_debug == true) {
 			m_print_lock.lock();
 			m_tasks_processed++;
-			printf("END: Task ID %2zu finished.\n", task_id);
+			std::wcout << L"END: Task ID " << task_id << " finished." << std::endl;
 			m_print_lock.unlock();
 		}
 	}
@@ -154,7 +155,7 @@ size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
 	m_task_waiter.notify_one();
 	if (m_debug == true) {
 		m_print_lock.lock();
-		printf("ADD: Task ID %2zu was added to the queue.\n", id);
+		std::wcout << L"ADD: Task ID " << id << " was added to the queue." << std::endl;
 		m_debug_queue_time[id] = std::chrono::system_clock::now();
 		m_print_lock.unlock();
 	}
@@ -162,18 +163,18 @@ size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
 }
 
 
-std::pair<std::vector<std::string>, std::vector<std::string>> thread_pool::get_status(size_t id)
+std::pair<std::vector<std::wstring>, std::vector<std::wstring>> thread_pool::get_status(size_t id)
 {
 	if (m_task_status.count(id) == 0) {
-		std::cout << "No such task exists." << std::endl;
+		std::wcout << L"No such task exists." << std::endl;
 		return { {}, {} };
 	}
 	auto task_status = m_task_status.at(id);
 	if (task_status.status == thread_pool::TaskStatus::Status::Waiting) {
-		std::cout << "Task " << id << " is in the task queue." << std::endl;
+		std::wcout << L"Task " << id << L" is in the task queue." << std::endl;
 	}
 	else if (task_status.status == thread_pool::TaskStatus::Status::Working) {
-		std::cout << "Task " << id << " is being processed." << std::endl;
+		std::wcout << L"Task " << id << L" is being processed." << std::endl;
 		return { {}, {} };
 	}
 	return {task_status.words, task_status.files};
@@ -184,7 +185,7 @@ void thread_pool::terminate()
 {
 	if (m_debug == true) {
 		m_print_lock.lock();
-		printf("TRM: Terminate called.\n");
+		std::wcout << L"TRM: Terminate called." << std::endl;
 		m_print_lock.unlock();
 	}
 	{
@@ -193,7 +194,7 @@ void thread_pool::terminate()
 		{
 			if (m_debug == true) {
 				m_print_lock.lock();
-				printf("TRM: Waiting for tasks to finish.\n");
+				std::wcout << L"TRM: Waiting for tasks to finish." << std::endl;
 				m_print_lock.unlock();
 			}
 			m_terminated = true;
@@ -228,8 +229,8 @@ inline void thread_pool::terminate_now()
 {
 	if (m_debug == true) {
 		m_print_lock.lock();
-		printf("TRM: Urgent termination called.\n");
-		printf("TRM: Clearing the task queue.\n");
+		std::wcout << L"TRM: Urgent termination called." << std::endl;
+		std::wcout << L"TRM: Clearing the task queue." << std::endl;
 		m_print_lock.unlock();
 	}
 	{
@@ -247,13 +248,13 @@ inline void thread_pool::terminate_now()
 void thread_pool::debug_terminate() {
 	m_print_lock.lock();
 
-	printf("TRM: No tasks left, terminating.\n\n");
-	printf("====DEBUG INFO====\n");
-	printf("Tasks added: %zu\n", m_tasks.task_count());
-	printf("Tasks processed: %zu\n", m_tasks_processed);
-	printf("Total queue wait time: %.3f ms\n", m_wait_time);
-	printf("Average queue wait time: %.3f ms\n", m_wait_time / m_tasks_processed);
-	printf("Average queue length: %.3f tasks\n", (double)m_avg_queue_len / (double)m_avg_read_cnt);
+	std::wcout << L"TRM: No tasks left, terminating.\n" << std::endl;
+	std::wcout << L"====DEBUG INFO====" << std::endl;
+	std::wcout << L"Tasks added: " << m_tasks.task_count() << std::endl;
+	std::wcout << L"Tasks processed: " << m_tasks_processed << std::endl;
+	std::wcout << std::setprecision(3) << L"Total queue wait time: " << m_wait_time << L" ms" << std::endl;
+	std::wcout << std::setprecision(3) << L"Average queue wait time: " << m_wait_time / m_tasks_processed << L" ms" << std::endl;
+	std::wcout << std::setprecision(3) << L"Average queue length: " << (double)m_avg_queue_len / (double)m_avg_read_cnt << L" tasks" << std::endl;
 
 	m_print_lock.unlock();
 }

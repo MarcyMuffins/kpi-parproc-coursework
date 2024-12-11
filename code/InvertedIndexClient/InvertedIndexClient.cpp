@@ -1,20 +1,61 @@
-// InvertedIndexClient.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+﻿#include <iostream>
+#include <string>
+#include <io.h>
+#include <fcntl.h>
+#include <fstream>
+#include <sstream>
+#include <cwctype>
 
-#include <iostream>
 
-int main()
-{
-    std::cout << "Hello World!\n";
+std::wstring clean_string(std::wstring input) {
+    std::wstring cleaned;
+
+    // видалення тегу <br />
+    size_t pos;
+    std::wstring sub = L"<br />";
+    while ((pos = input.find(sub)) != std::wstring::npos) {
+        input.erase(pos, sub.length());
+        input.insert(pos, L" ");
+    }
+    for (int i = 0; i < input.length(); i++) {
+        wchar_t ch = input.at(i);
+        if (std::iswalnum(ch) || std::iswspace(ch)) {
+            cleaned += std::towlower(ch); // Забираємо капіталізацію
+        }
+        else {
+            cleaned += L' ';
+        }
+    }
+    return cleaned;
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
 
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+//wide string testing shit
+int main()
+{
+    _setmode(_fileno(stdout), _O_U16TEXT);
+    _setmode(_fileno(stdin), _O_U16TEXT);
+    std::wstring path = L"C:\\Users\\MarcyMuffins\\Desktop\\UNI\\SEM_7\\PARPROC\\repo\\code\\test_utf\\6750_10.txt";
+    std::wcout << path << std::endl << std::endl;
+    std::wifstream file(path);
+    if (!file.is_open()) {
+        std::wcerr << L"Unable to open the file!" << std::endl;
+        return 0;
+    }
+
+    std::wstringstream buffer;
+    buffer << file.rdbuf(); // Читаємо файл у рядок
+    file.close();
+    std::wstring fileContent = buffer.str();
+    std::wcout << "File contents:\n" << fileContent << "\n" << std::endl;
+
+    /*
+    std::wstring ws2 = clean_string(ws1);
+    std::wcout << ws2 << std::endl;
+    std::wistringstream stream(ws2);
+    std::wstring word;
+    while (stream >> word) {
+        std::wcout << word << std::endl;
+    }*/
+    return 0;
+}

@@ -17,16 +17,16 @@ using write_lock = std::unique_lock<read_write_lock>;
 class inverted_index {
 private:
 	//          word            list of files
-	std::map<std::string, std::vector<std::string>> dict;
+	std::map<std::wstring, std::vector<std::wstring>> dict;
 	//list of files already processed
-	std::vector<std::string> files;
+	//std::vector<std::string> files;
 	mutable read_write_lock m_rw_lock;
-	std::string clean_string(std::string input);
+	std::wstring clean_string(std::wstring input);
 
 public:
-	inverted_index(std::vector<std::string>& filenames);
-	void add_file(std::string& filename);
+	inverted_index(std::vector<std::wstring>& filenames);
+	void add_file(std::wstring& filename);
 	void debug_list_files();
-	std::vector<std::string> search(std::vector<std::string>& word_query);
+	std::vector<std::wstring> search(std::vector<std::wstring>& word_query);
 	
 };
