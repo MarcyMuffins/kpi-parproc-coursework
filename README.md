@@ -7,4 +7,16 @@ These are subject to change.
 
 ## Client & Server code
 
-In the code folder you'll find folders for both the client and the server. Currently the client is a placeholder project for various feature testing, and the server only has the inverted index structure and a thread pool realized both support wide characters, so that's neat!
+In the code folder you'll find folders for both the client and the server.
+The client is able to connect to the local server and query words, print out the list of files the words were found it, and print out one of the files.
+The server does... everything else.
+
+TODO:
+Only return truncated file paths (from /db/ onwards)
+
+Clientside file saving
+Clientside file query loop
+Clientside admin functionality
+
+Serverside logging
+Pray to Dennis Ritchie that the parallelization works
