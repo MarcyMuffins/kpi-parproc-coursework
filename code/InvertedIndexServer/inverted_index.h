@@ -21,12 +21,12 @@ private:
 	//list of files already processed
 	//std::vector<std::string> files;
 	mutable read_write_lock m_rw_lock;
-	std::wstring clean_string(std::wstring input);
 
 public:
 	inverted_index(std::vector<std::wstring>& filenames);
 	void add_file(std::wstring& filename);
 	void debug_list_files();
 	std::vector<std::wstring> search(std::vector<std::wstring>& word_query);
+	std::wstring clean_string(std::wstring input);
 	
 };

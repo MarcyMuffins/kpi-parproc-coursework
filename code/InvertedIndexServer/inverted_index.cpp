@@ -54,14 +54,14 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames) {
         buffer << file.rdbuf(); // Читаємо файл у рядок
         file.close();
 
-        std::wstring fileContent = buffer.str();
+        std::wstring file_content = buffer.str();
         //std::cout << "File contents:\n" << fileContent << "\n" << std::endl;
 
         // Очищення вмісту
-        std::wstring cleanedContent = clean_string(fileContent);
+        std::wstring cleaned_content = clean_string(file_content);
         //std::cout << "Cleaned text:\n" << cleanedContent << "\n" << std::endl;
 
-        std::wistringstream stream(cleanedContent);
+        std::wistringstream stream(cleaned_content);
         std::wstring word;
         std::vector<std::wstring> temp;
         while (stream >> word) {
