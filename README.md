@@ -12,13 +12,12 @@ The client is able to connect to the local server and query words, print out the
 The server does... everything else.
 
 TODO:
-Only return truncated file paths (from /db/ onwards)
 
-Clientside file saving
-
-Clientside file query loop
+rewrite whole fucking code because I'm an idiot
 
 Clientside admin functionality
+
+Scheduled index updating
 
 Serverside logging
 
