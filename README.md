@@ -15,8 +15,11 @@ TODO:
 Only return truncated file paths (from /db/ onwards)
 
 Clientside file saving
+
 Clientside file query loop
+
 Clientside admin functionality
 
 Serverside logging
+
 Pray to Dennis Ritchie that the parallelization works
