@@ -233,76 +233,86 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
             return;
         }
     }
-    unsigned char choice_buf[5] = {0};
-    bytes_received = recv(client_socket, (char*)choice_buf, sizeof(choice_buf), 0);
-    if (bytes_received == 0) {
-        if(DEBUG){
+    while(1){
+        unsigned char choice_buf[5] = {0};
+        bytes_received = recv(client_socket, (char*)choice_buf, sizeof(choice_buf), 0);
+        if (bytes_received == 0) {
+            if(DEBUG){
+                std::lock_guard<std::mutex> lock(print_mtx);
+                std::wcout << L"CLT " << id << L" disconnected. " << std::endl;
+            }
+            handle_disconnect(id, client_data[id], client_socket);
+            return;
+        } else if (bytes_received < 0) {
+            if (WSAGetLastError() == WSAETIMEDOUT) {
+                if (DEBUG) {
+                    std::lock_guard<std::mutex> lock(print_mtx);
+                    std::wcout << L"CLT " << id << L" timeout. " << std::endl;
+                }
+            } else {
+                if (DEBUG) {
+                    std::lock_guard<std::mutex> lock(print_mtx);
+                    std::wcout << L"CLT " << id << L" Error. " << std::endl;
+                }
+            }
+            handle_disconnect(id, client_data[id], client_socket);
+            return;
+        }
+        int choice = (choice_buf[0] << 24) | (choice_buf[1] << 16) | (choice_buf[2] << 8) | (choice_buf[3]);
+        if (choice == 0){
+            if(DEBUG){
+                std::lock_guard<std::mutex> lock(print_mtx);
+                std::wcout << L"CLT " << id << L" requested no file. Disconnecting." << std::endl;
+            }
+            handle_disconnect(id, client_data[id], client_socket);
+            return;
+        }
+        if (DEBUG) {
             std::lock_guard<std::mutex> lock(print_mtx);
-            std::wcout << L"CLT " << id << L" disconnected. " << std::endl;
+            std::wcout << L"CLT " << id << L" requested file " << choice << std::endl;
         }
-        handle_disconnect(id, client_data[id], client_socket);
-        return;
-    } else if (bytes_received < 0) {
-        if (WSAGetLastError() == WSAETIMEDOUT) {
-            if (DEBUG) {
-                std::lock_guard<std::mutex> lock(print_mtx);
-                std::wcout << L"CLT " << id << L" timeout. " << std::endl;
-            }
-        } else {
-            if (DEBUG) {
-                std::lock_guard<std::mutex> lock(print_mtx);
-                std::wcout << L"CLT " << id << L" Error. " << std::endl;
-            }
+        choice--;
+        std::wifstream file(result[choice]);
+        if (!file.is_open()) {
+            std::wcerr << L"CLT " << id  << L" unable to open the file." << std::endl;
+            handle_disconnect(id, client_data[id], client_socket);
+            return;
         }
-        handle_disconnect(id, client_data[id], client_socket);
-        return;
-    }
-    int choice = (choice_buf[0] << 24) | (choice_buf[1] << 16) | (choice_buf[2] << 8) | (choice_buf[3]) - 1;
-    if (DEBUG) {
-        std::lock_guard<std::mutex> lock(print_mtx);
-        std::wcout << L"CLT " << id << L" requested file " << choice << std::endl;
-    }
-    std::wifstream file(result[choice]);
-    if (!file.is_open()) {
-        std::wcerr << L"CLT " << id  << L" unable to open the file." << std::endl;
-        handle_disconnect(id, client_data[id], client_socket);
-        return;
-    }
-    file.imbue(std::locale("en_US.UTF-8"));
-    std::wstringstream file_buffer;
-    file_buffer << file.rdbuf();
-    file.close();
-    std::wstring file_content = file_buffer.str();
-    //std::wcout << file_content << std::endl;
-    int file_content_size = WideCharToMultiByte(CP_UTF8, 0, &file_content[0], -1, nullptr, 0, nullptr, nullptr);
-    std::string file_content_s(file_content_size, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, &file_content[0], -1, &file_content_s[0], file_content_size, nullptr, nullptr);
-    //std::wcout << file_content_size << std::endl;
-    unsigned short n_file_content_blocks = (file_content_size / buffer_size) + 1;
-    unsigned char filesize_buf[3] = {0};
-    filesize_buf[0] = (n_file_content_blocks >> 8) & 0xFF;
-    filesize_buf[1] = n_file_content_blocks & 0xFF; 
-    if (send(client_socket, (char*)filesize_buf, sizeof(filesize_buf), 0) < 0) {
-        std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-        handle_disconnect(id, client_data[id], client_socket);
-        return;
-    }
-    //std::wcout << n_file_content_blocks << std::endl;
-    for (int i = 0; i < n_file_content_blocks; i++){
-        memset(buffer, '\0', sizeof(buffer));
-        int index = i * (buffer_size-1);
-        int copy_len = buffer_size-1;
-        if(index + copy_len > file_content_s.length()){
-            copy_len = file_content_s.length() - index;
-        }
-        memcpy(buffer, &file_content_s[index], copy_len);
-        if (send(client_socket, buffer, buffer_size, 0) < 0) {
+        file.imbue(std::locale("en_US.UTF-8"));
+        std::wstringstream file_buffer;
+        file_buffer << file.rdbuf();
+        file.close();
+        std::wstring file_content = file_buffer.str();
+        //std::wcout << file_content << std::endl;
+        int file_content_size = WideCharToMultiByte(CP_UTF8, 0, &file_content[0], -1, nullptr, 0, nullptr, nullptr);
+        std::string file_content_s(file_content_size, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, &file_content[0], -1, &file_content_s[0], file_content_size, nullptr, nullptr);
+        //std::wcout << file_content_size << std::endl;
+        unsigned short n_file_content_blocks = (file_content_size / buffer_size) + 1;
+        unsigned char filesize_buf[3] = {0};
+        filesize_buf[0] = (n_file_content_blocks >> 8) & 0xFF;
+        filesize_buf[1] = n_file_content_blocks & 0xFF; 
+        if (send(client_socket, (char*)filesize_buf, sizeof(filesize_buf), 0) < 0) {
             std::wcout << L"CLT " << id << L" error sending message" << std::endl;
             handle_disconnect(id, client_data[id], client_socket);
             return;
         }
+        //std::wcout << n_file_content_blocks << std::endl;
+        for (int i = 0; i < n_file_content_blocks; i++){
+            memset(buffer, '\0', sizeof(buffer));
+            int index = i * (buffer_size-1);
+            int copy_len = buffer_size-1;
+            if(index + copy_len > file_content_s.length()){
+                copy_len = file_content_s.length() - index;
+            }
+            memcpy(buffer, &file_content_s[index], copy_len);
+            if (send(client_socket, buffer, buffer_size, 0) < 0) {
+                std::wcout << L"CLT " << id << L" error sending message" << std::endl;
+                handle_disconnect(id, client_data[id], client_socket);
+                return;
+            }
+        }
     }
-
     handle_disconnect(id, client_data[id], client_socket);
 }
 

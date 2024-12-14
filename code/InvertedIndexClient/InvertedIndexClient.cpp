@@ -14,8 +14,11 @@
 #include <WinSock2.h>
 #include <Windows.h>
 #include <Ws2tcpip.h>
+#include <filesystem>
 
 #pragma comment(lib,"WS2_32")
+
+namespace fs = std::filesystem;
 
 #define buffer_size 4096
 
@@ -198,47 +201,84 @@ int main()
             found_files.push_back(filepath);
             std::wcout << " " << i+1 << ": " << filepath << std::endl;
         }
-        std::wcout << "Select a number from 1-" << n_files << " to preview the file." << std::endl;
-        int choice = 0;
-        std::wcin.clear();
-        std::wcin >> choice;
-        while (choice < 1 || choice > n_files){
-            std::wcout << "Invalid choice." << std::endl;
+        //save loop
+        while(1){
+            std::wcout << "Select a number from 1-" << n_files << " to preview the file. Type 0 to exit." << std::endl;
+            int choice = 0;
             std::wcin.clear();
             std::wcin >> choice;
-        }
-        unsigned char choice_buf[5] = {0};
-        choice_buf[0] = (choice >> 24) & 0xFF;
-        choice_buf[1] = (choice >> 16) & 0xFF;
-        choice_buf[2] = (choice >> 8) & 0xFF;
-        choice_buf[3] = choice & 0xFF; 
-        if (send(client_socket, (char*)choice_buf, sizeof(choice_buf), 0) < 0) {
-            std::wcout << L"Error sending message" << std::endl;
-            return 0;
-        }
-        unsigned char filesize_buf[3] = {0};
-        if (recv(client_socket, (char*)filesize_buf, sizeof(filesize_buf), 0) < 0) {
-            std::wcout << L"Error receiving message" << std::endl;
-            closesocket(client_socket);
-            return -1;
-        }
-        unsigned short n_file_content_blocks = ((filesize_buf[0] << 8) | (filesize_buf[1]));
-        //std::wcout << n_file_content_blocks << std::endl;
-        std::wstring file_contents;
-        for (int i = 0; i < n_file_content_blocks; i++){
-            memset(buffer, '\0', sizeof(buffer));
-            if (recv(client_socket, buffer, buffer_size, 0) < 0) {
+            while (choice < 0 || choice > n_files){
+                std::wcout << "Invalid choice." << std::endl;
+                std::wcin.clear();
+                std::wcin >> choice;
+            }
+            unsigned char choice_buf[5] = {0};
+            choice_buf[0] = (choice >> 24) & 0xFF;
+            choice_buf[1] = (choice >> 16) & 0xFF;
+            choice_buf[2] = (choice >> 8) & 0xFF;
+            choice_buf[3] = choice & 0xFF; 
+            if (send(client_socket, (char*)choice_buf, sizeof(choice_buf), 0) < 0) {
+                std::wcout << L"Error sending message" << std::endl;
+                return 0;
+            }
+            if (choice == 0){
+                std::wcout << "Exiting." << std::endl;
+                break;
+            }
+            unsigned char filesize_buf[3] = {0};
+            if (recv(client_socket, (char*)filesize_buf, sizeof(filesize_buf), 0) < 0) {
                 std::wcout << L"Error receiving message" << std::endl;
                 closesocket(client_socket);
                 return -1;
             }
-            int file_contents_size = MultiByteToWideChar(CP_UTF8, 0, buffer, -1, nullptr, 0);
-            std::wstring temp(file_contents_size, 0);
-            MultiByteToWideChar(CP_UTF8, 0, buffer, -1, &temp[0], file_contents_size);
-            temp.pop_back();
-            file_contents += temp;
+            unsigned short n_file_content_blocks = ((filesize_buf[0] << 8) | (filesize_buf[1]));
+            //std::wcout << n_file_content_blocks << std::endl;
+            std::wstring file_contents;
+            for (int i = 0; i < n_file_content_blocks; i++){
+                memset(buffer, '\0', sizeof(buffer));
+                if (recv(client_socket, buffer, buffer_size, 0) < 0) {
+                    std::wcout << L"Error receiving message" << std::endl;
+                    closesocket(client_socket);
+                    return -1;
+                }
+                int file_contents_size = MultiByteToWideChar(CP_UTF8, 0, buffer, -1, nullptr, 0);
+                std::wstring temp(file_contents_size, 0);
+                MultiByteToWideChar(CP_UTF8, 0, buffer, -1, &temp[0], file_contents_size);
+                temp.pop_back();
+                file_contents += temp;
+            }
+            std::wcout << "=== BEGIN FILE ===" << std::endl;
+            std::wcout << file_contents << std::endl;
+            std::wcout << "=== END FILE ===" << std::endl;
+            std::wcout << "Do you want to save the file? y/n" << std::endl;
+            std::wstring save;
+            std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
+            getline(std::wcin, save);
+            if(save[0] == 'y'){
+                fs::path folder_path = fs::current_path() / "downloads";
+                //std::wcout << folder_path << std::endl;
+                if(!fs::exists(folder_path)){
+                    if (fs::create_directory(folder_path)) {
+                        std::wcout << L"Downloads folder successfully created." << std::endl;
+                    } else {
+                        std::wcerr << L"Failed to create folder downloads folder." << std::endl;
+                    }
+                }
+
+                std::wstring file_name = found_files[choice-1];
+                fs::path file_path = folder_path / fs::path(file_name).filename();
+                std::wofstream out_file;
+                out_file.open(file_path, std::ios::out);
+                if (out_file.is_open()) {
+                    out_file << file_contents;
+                    out_file.close();
+                    std::wcout << L"File written successfully to: " << std::endl << file_path << std::endl;
+                } else {
+                    std::wcerr << L"Failed to open file: " << std::endl << file_path << std::endl;
+                }
+            }
         }
-        std::wcout << file_contents << std::endl;
+        
 
     } else {
 
