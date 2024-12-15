@@ -17,7 +17,7 @@
 
 //TODO: Add word position tracking?
 
-#define DEBUG true
+#define DEBUG false
 
 using read_write_lock = std::shared_mutex;
 using read_lock = std::shared_lock<read_write_lock>;

@@ -1,4 +1,5 @@
 # ignore all text file folders
+*.log
 code/db/
 code/test_db/
 code/test_utf/
