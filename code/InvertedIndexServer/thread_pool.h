@@ -27,7 +27,7 @@ public:
 public:
 	template <typename task_t, typename... arguments>
 	inline size_t add_task(task_t&& task, arguments&&... parameters);
-	std::vector<std::wstring> get_status(size_t id);
+	char get_status(size_t id);
 public:
 	thread_pool(const thread_pool& other) = delete;
 	thread_pool(thread_pool&& other) = delete;
@@ -40,14 +40,13 @@ private:
 			Working,
 			Finished
 		} status;
-		std::vector<std::wstring> files;
 	};
 	mutable read_write_lock m_rw_lock;
 	mutable read_write_lock m_status_lock;
 	mutable read_write_lock m_print_lock;
 	mutable std::condition_variable_any m_task_waiter;
 	std::vector<std::thread> m_workers;
-	task_queue<std::function<std::vector<std::wstring>()>> m_tasks;
+	task_queue<std::function<void()>> m_tasks;
 	std::unordered_map<size_t, TaskStatus> m_task_status;
 	std::unordered_map<size_t, std::chrono::time_point<std::chrono::system_clock>> m_debug_queue_time;
 	double m_wait_time = 0.0;
@@ -99,7 +98,7 @@ void thread_pool::routine()
 		bool task_acquired = false;
 		size_t task_id = -1;
 		size_t queue_len = 0;
-		std::function<std::vector<std::wstring>()> task;
+		std::function<void()> task;
 		{
 			write_lock _(m_rw_lock);
 			auto wait_condition = [this, &task_acquired, &task_id, &task, &queue_len] {
@@ -124,8 +123,7 @@ void thread_pool::routine()
 			std::wcout << std::setprecision(3) << L"WRK " << task_id << L": Task began working. Queue wait time " << elapsed.count() * 1e-6 << " miliseconds." << std::endl;
 			m_print_lock.unlock();
 		}
-		std::vector<std::wstring> res = task();
-		m_task_status[task_id].files = res;
+		task();
 		m_task_status[task_id].status = thread_pool::TaskStatus::Status::Finished;
 		if (m_debug == true) {
 			m_print_lock.lock();
@@ -161,22 +159,22 @@ size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
 }
 
 
-std::vector<std::wstring> thread_pool::get_status(size_t id)
+char thread_pool::get_status(size_t id)
 {
 	if (m_task_status.count(id) == 0) {
 		//std::wcout << L"No such task exists." << std::endl;
-		return {L"N"};
+		return 'N';
 	}
 	auto task_status = m_task_status.at(id);
 	if (task_status.status == thread_pool::TaskStatus::Status::Waiting) {
 		//std::wcout << L"Task " << id << L" is in the task queue." << std::endl;
-		return {L"Q"};
+		return 'Q';
 	}
 	else if (task_status.status == thread_pool::TaskStatus::Status::Working) {
 		//std::wcout << L"Task " << id << L" is being processed." << std::endl;
-		return {L"P"};
+		return 'P';
 	}
-	return task_status.files;
+	return 'F';
 
 }
 

@@ -138,7 +138,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="InvertedIndexServer.cpp" />
-    <ClCompile Include="inverted_index.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="client_data_t.h" />

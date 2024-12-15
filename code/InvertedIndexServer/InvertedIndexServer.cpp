@@ -28,66 +28,63 @@
 
 namespace fs = std::filesystem;
 
-constexpr bool DEBUG = true;
 std::mutex print_mtx;
 
-std::vector<std::wstring> client_function(size_t id, std::vector<std::wstring>& query, inverted_index& index){
-    if(DEBUG){
-        std::lock_guard<std::mutex> lock(print_mtx);
-        std::wcout << "TDP " << id << ": Pool began processing task." << std::endl;
-    }
-    std::vector<std::wstring> result = index.search(query);
-    if(DEBUG){
-        std::lock_guard<std::mutex> lock(print_mtx);
-        std::wcout << "TDP " << id << ": Pool finished processing task." << std::endl;
-    }
-    return result;
-}
-
-inline void handle_disconnect(size_t id, client_data_t& client_data, SOCKET& client_socket){
+inline void handle_disconnect(size_t id, std::map<size_t, client_data_t>& client_data, SOCKET& client_socket){
     time_t disconnect_time;
     time(&disconnect_time);
-    client_data.disconnect_time = disconnect_time;
+    client_data[id].disconnect_time = disconnect_time;
     if(DEBUG){
         std::lock_guard<std::mutex> lock(print_mtx);
         std::wcout << L"CLT " << id << L" disconnected. " << std::endl;
         std::wcout << L"    TIME: " << disconnect_time << std::endl;
     }
     //TODO before closing print log to file
+    client_data.erase(id);
     closesocket(client_socket);
 }
 
-void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, inverted_index& index, std::map<size_t, client_data_t>& client_data, thread_pool& pool){
-    time_t connect_time;
-    time(&connect_time);
+void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, inverted_index& index, std::map<size_t, client_data_t>& client_data, time_t connect_time){
+    time_t start_time;
+    time(&start_time);
 
     int timeout = 60 * 1000; // 60 seconds
     setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
 
+    //save data for logging
     char ip_c[24];
     inet_ntop(AF_INET, &client_addr.sin_addr, ip_c, sizeof(ip_c)-1);
     std::wstring ip(ip_c, ip_c + strlen(ip_c));
-
     std::vector<std::wstring> query;
-    query.clear();
-
     std::vector<std::wstring> result;
-    result.clear();
-
+    std::vector<int> requested_files;
     time_t disconnect_time = 0;
     client_data[id] = {
         id,
         ip,
+        connect_time,
+        start_time,
         query,
         result,
-        connect_time,
+        requested_files,
         disconnect_time
     };
+
+    //send signal to client that we started shit
+    char start_buf[2] = { 'S', '\0' };
+    if (send(client_socket, (char*)start_buf, sizeof(start_buf), 0) < 0) {
+        std::wcout << L"CLT " << id << L" error sending message" << std::endl;
+        handle_disconnect(id, client_data, client_socket);
+        return;
+    }
+
+
     if(DEBUG){
         std::lock_guard<std::mutex> lock(print_mtx);
         std::wcout << L"CLT " << id << L" connected. " << std::endl;
         std::wcout << L"    IP: " << ip << std::endl;
-        std::wcout << L"    TIME: " << connect_time << std::endl << std::endl;
+        std::wcout << L"    CONNECTED: " << connect_time << std::endl;
+        std::wcout << L"    STARTED: " << start_time << std::endl << std::endl;
     }
 
     unsigned char n_blocks_buff[2];
@@ -99,7 +96,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
             std::lock_guard<std::mutex> lock(print_mtx);
             std::wcout << L"CLT " << id << L" disconnected. " << std::endl;
         }
-        handle_disconnect(id, client_data[id], client_socket);
+        handle_disconnect(id, client_data, client_socket);
         return;
     } else if (bytes_received < 0) {
         if (WSAGetLastError() == WSAETIMEDOUT) {
@@ -113,7 +110,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                 std::wcout << L"CLT " << id << L" Error. " << std::endl;
             }
         }
-        handle_disconnect(id, client_data[id], client_socket);
+        handle_disconnect(id, client_data, client_socket);
         return;
     }
     int wide_string_size = MultiByteToWideChar(CP_UTF8, 0, buffer, -1, nullptr, 0);
@@ -135,8 +132,28 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
         }
         std::wcout << std::endl << std::endl;
     }
-    size_t id_pool = pool.add_task(client_function, id, std::ref(query), std::ref(index));
+    //task in pool starts looking in the index
+    //client waits for response indicating it's done
+    //poop from a butt but better than constant pinging I guess
+    //sending that search started
+    char status_buf[2] = { 'Q', '\0' };
+    if (send(client_socket, (char*)status_buf, sizeof(status_buf), 0) < 0) {
+        std::wcout << L"CLT " << id << L" error sending message" << std::endl;
+        handle_disconnect(id, client_data, client_socket);
+        return;
+    }
+    result = index.search(query);
+    status_buf[0] = 'F';
+    if (send(client_socket, (char*)status_buf, sizeof(status_buf), 0) < 0) {
+        std::wcout << L"CLT " << id << L" error sending message" << std::endl;
+        handle_disconnect(id, client_data, client_socket);
+        return;
+    }
 
+
+    //I liked this block of code
+    //too bad they got him
+    /*
     char ping_buf[2] = {0};
     char status_buf[2] = {0};
     while (true) {
@@ -151,7 +168,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                 status_buf[0] = 'C';
                 if (send(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
                     std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-                    handle_disconnect(id, client_data[id], client_socket);
+                    handle_disconnect(id, client_data, client_socket);
                     return;
                 }
                 break;
@@ -166,14 +183,14 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                 }
                 if (send(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
                     std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-                    handle_disconnect(id, client_data[id], client_socket);
+                    handle_disconnect(id, client_data, client_socket);
                     return;
                 }
             } else {
                 status_buf[0] = 'C';
                 if (send(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
                     std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-                    handle_disconnect(id, client_data[id], client_socket);
+                    handle_disconnect(id, client_data, client_socket);
                     return;
                 }
                 break;
@@ -183,7 +200,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                 std::lock_guard<std::mutex> lock(print_mtx);
                 std::wcout << L"CLT " << id << L" disconnected. " << std::endl;
             }
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         } else {
             if (WSAGetLastError() == WSAETIMEDOUT) {
@@ -197,10 +214,11 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                     std::wcout << L"CLT " << id << L" Error. " << std::endl;
                 }
             }
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         }
-    }
+    }*/
+
     unsigned int n_files = result.size();
     unsigned char n_files_buf[5] = {0};
     n_files_buf[0] = (n_files >> 24) & 0xFF;
@@ -209,11 +227,11 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
     n_files_buf[3] = n_files & 0xFF; 
     if (send(client_socket, (char*)n_files_buf, sizeof(n_files_buf), 0) < 0) {
         std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-        handle_disconnect(id, client_data[id], client_socket);
+        handle_disconnect(id, client_data, client_socket);
         return;
     }
     if(n_files == 0){
-        handle_disconnect(id, client_data[id], client_socket);
+        handle_disconnect(id, client_data, client_socket);
         return;
     }
     if(DEBUG){
@@ -229,7 +247,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
         WideCharToMultiByte(CP_UTF8, 0, result[i].c_str(), -1, &filepath[0], buffer_size, nullptr, nullptr);
         if (send(client_socket, filepath.c_str(), buffer_size, 0) < 0) {
             std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         }
     }
@@ -241,7 +259,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                 std::lock_guard<std::mutex> lock(print_mtx);
                 std::wcout << L"CLT " << id << L" disconnected. " << std::endl;
             }
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         } else if (bytes_received < 0) {
             if (WSAGetLastError() == WSAETIMEDOUT) {
@@ -255,7 +273,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                     std::wcout << L"CLT " << id << L" Error. " << std::endl;
                 }
             }
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         }
         int choice = (choice_buf[0] << 24) | (choice_buf[1] << 16) | (choice_buf[2] << 8) | (choice_buf[3]);
@@ -264,7 +282,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
                 std::lock_guard<std::mutex> lock(print_mtx);
                 std::wcout << L"CLT " << id << L" requested no file. Disconnecting." << std::endl;
             }
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         }
         if (DEBUG) {
@@ -275,7 +293,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
         std::wifstream file(result[choice]);
         if (!file.is_open()) {
             std::wcerr << L"CLT " << id  << L" unable to open the file." << std::endl;
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         }
         file.imbue(std::locale("en_US.UTF-8"));
@@ -294,7 +312,7 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
         filesize_buf[1] = n_file_content_blocks & 0xFF; 
         if (send(client_socket, (char*)filesize_buf, sizeof(filesize_buf), 0) < 0) {
             std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-            handle_disconnect(id, client_data[id], client_socket);
+            handle_disconnect(id, client_data, client_socket);
             return;
         }
         //std::wcout << n_file_content_blocks << std::endl;
@@ -308,12 +326,24 @@ void process_client(size_t id, SOCKET client_socket, sockaddr_in client_addr, in
             memcpy(buffer, &file_content_s[index], copy_len);
             if (send(client_socket, buffer, buffer_size, 0) < 0) {
                 std::wcout << L"CLT " << id << L" error sending message" << std::endl;
-                handle_disconnect(id, client_data[id], client_socket);
+                handle_disconnect(id, client_data, client_socket);
                 return;
             }
         }
     }
-    handle_disconnect(id, client_data[id], client_socket);
+    handle_disconnect(id, client_data, client_socket);
+}
+
+void scheduler_thread(fs::path dir, inverted_index& index){
+    if(DEBUG){
+        std::lock_guard<std::mutex> lock(print_mtx);
+        std::wcout << L"SCH: Started scheduler." << std::endl;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(30));
+    if(DEBUG){
+        std::lock_guard<std::mutex> lock(print_mtx);
+        std::wcout << L"SCH: Scanning for new files." << std::endl;
+    }
 }
 
 int main()
@@ -409,6 +439,23 @@ int main()
 
     std::map<size_t, client_data_t> client_data;
     thread_pool pool;
+    pool.initialize(2, true);
+    int addr_client_size = sizeof(addr_client);
+    size_t last_id = 0;
+    time_t connect_time;
+    while(socket_client = accept(socket_server, (sockaddr*) &addr_client, &addr_client_size)) {
+        time(&connect_time);
+        pool.add_task(process_client, last_id, socket_client, addr_client, std::ref(index), std::ref(client_data), connect_time);
+        last_id++;
+    }
+
+    //some idiot (me) forgot that adding every client to a
+    //separate thread means you need a CPU core for every
+    //two clients
+    //too bad!
+    /*
+    std::map<size_t, client_data_t> client_data;
+    thread_pool pool;
     std::thread client_thread;
     pool.initialize(4, true);
     int addr_client_size = sizeof(addr_client);
@@ -417,7 +464,7 @@ int main()
         client_thread = std::thread(process_client, last_id, socket_client, addr_client, std::ref(index), std::ref(client_data), std::ref(pool));
         client_thread.detach();
         last_id++;
-    }
+    }*/
     closesocket(socket_server);
     WSACleanup();
     return 0;

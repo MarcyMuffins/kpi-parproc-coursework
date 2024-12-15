@@ -99,6 +99,16 @@ int main()
     } else {
         std::wcout << L"Connect OK" << std::endl;
     }
+
+    std::wcout << "Waiting for server signal to start sending data." << std::endl;
+    char start_buf[2] = {0};
+    if (recv(client_socket, start_buf, sizeof(start_buf), 0) < 0) {
+        std::wcout << L"Error receiving message" << std::endl;
+        closesocket(client_socket);
+        return -1;
+    }
+    std::wcout << "Server started processing the client." << std::endl;
+
     // Send query type (Q - query, A - admin)
     std::wcout << std::endl << L"Select query type:" << std::endl;
     std::wcout << " 1 - Word query. Search for one or more words in the database." << std::endl;
@@ -141,6 +151,35 @@ int main()
             return -1;
         }
 
+
+        char status_buf[2] = {0};
+        if (recv(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
+            std::wcout << L"Error receiving message" << std::endl;
+            closesocket(client_socket);
+            return -1;
+        }
+        if (status_buf[0] == 'Q'){
+            std::wcout << "Server started searching for the query in the index." << std::endl;
+        } else {
+            std::wcerr << "Something went wrong." << std::endl;
+            closesocket(client_socket);
+            return -1;
+        }
+        if (recv(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
+            std::wcout << L"Error receiving message" << std::endl;
+            closesocket(client_socket);
+            return -1;
+        }
+        if (status_buf[0] == 'F'){
+            std::wcout << "Server finished searching for the query in the index." << std::endl;
+        } else {
+            std::wcerr << "Something went wrong." << std::endl;
+            closesocket(client_socket);
+            return -1;
+        }
+
+        //mirrored poopcode
+        /*
         int ping = 2;
         std::wcout << "Pinging server for status every " << ping << " seconds." << std::endl;
         char ping_buf[2] = {'S', '\0'};
@@ -169,7 +208,8 @@ int main()
                 break;
             }
             std::this_thread::sleep_for(std::chrono::seconds(ping));
-        }
+        }*/
+
         //std::wcout << "Receiving amount of files found." << std::endl;
         
         unsigned char n_files_buf[5] = {0};
@@ -278,8 +318,6 @@ int main()
                 }
             }
         }
-        
-
     } else {
 
     }

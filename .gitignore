@@ -5,6 +5,7 @@ code/test_utf/
 code/InvertedIndexClient/x64/
 code/InvertedIndexServer/x64/
 code/InvertedIndexClient/.vs/
+code/InvertedIndexClient/downloads/
 code/InvertedIndexServer/.vs/
 code/InvertedIndexClient/Inverted.d2803445/
 code/InvertedIndexServer/Inverted.fed0f038/

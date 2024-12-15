@@ -13,8 +13,6 @@ The server does... everything else.
 
 TODO:
 
-rewrite whole fucking code because I'm an idiot
-
 Clientside admin functionality
 
 Scheduled index updating
