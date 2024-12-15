@@ -9,14 +9,24 @@ These are subject to change.
 
 In the code folder you'll find folders for both the client and the server.
 The client is able to connect to the local server and query words, print out the list of files the words were found it, and print out one of the files.
-The server does... everything else.
+The server does... everything else. I'll document it all once I'm done
 
 TODO:
 
-Clientside admin functionality
+ - Clientside admin functionality
 
-Scheduled index updating
+ - Finalize server and client inputs (db path, debug mode, etc)
 
-Serverside logging
+ - Pray to Dennis Ritchie that the code works
 
-Pray to Dennis Ritchie that the parallelization works
+## Problems
+
+ - It looks like poop from a butt
+
+ - Formatting, I guess? I messed with VS settings midway through writing the code so it might have messed some stuff up
+
+ - Remove redundant comments
+
+ - Add useful comments
+
+ - Survive

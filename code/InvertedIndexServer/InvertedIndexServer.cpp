@@ -28,6 +28,8 @@
 
 namespace fs = std::filesystem;
 
+#define DEBUG true
+
 std::mutex print_mtx;
 std::mutex log_mtx;
 
@@ -466,15 +468,57 @@ void process_client(size_t id, SOCKET client_socket, inverted_index& index, fs::
     handle_disconnect(id, client_socket, log_path);
 }
 
-void scheduler_thread(fs::path dir, inverted_index& index){
+void scheduler_function(fs::path dir, inverted_index& index, fs::path& log_path){
+    const int delay = 30;
+    std::wofstream log_file;
+    {
+        std::lock_guard<std::mutex> lock(log_mtx);
+        log_file.open(log_path, std::ios::app);
+        log_file << get_formatted_time();
+        log_file << L": Started scheduler. Looking for new files every " << delay << L" seconds." << std::endl;
+        log_file.close();
+
+    }
     if(DEBUG){
         std::lock_guard<std::mutex> lock(print_mtx);
         std::wcout << L"SCH: Started scheduler." << std::endl;
     }
-    std::this_thread::sleep_for(std::chrono::seconds(30));
-    if(DEBUG){
-        std::lock_guard<std::mutex> lock(print_mtx);
-        std::wcout << L"SCH: Scanning for new files." << std::endl;
+    while(1){
+        std::this_thread::sleep_for(std::chrono::seconds(delay));
+        if(DEBUG){
+            std::lock_guard<std::mutex> lock(print_mtx);
+            std::wcout << L"SCH: Scanning for new files." << std::endl;
+        }
+        {
+            std::lock_guard<std::mutex> lock(log_mtx);
+            log_file.open(log_path, std::ios::app);
+            log_file << get_formatted_time();
+            log_file << L": Scheduler scanning for new files." << std::endl;
+            log_file.close();
+        }
+        std::unordered_set<std::wstring> processed_files = index.get_processed_files();
+        std::vector<std::wstring> new_files;
+        for (const auto& entry : fs::recursive_directory_iterator(dir, fs::directory_options::follow_directory_symlink)) {
+            if (fs::is_regular_file(entry)) {
+                if (!processed_files.contains(entry.path().generic_wstring())){
+                    new_files.push_back(entry.path().generic_wstring());
+                }
+            }
+        }
+        if(DEBUG){
+            std::lock_guard<std::mutex> lock(print_mtx);
+            std::wcout << L"Finished scanning, found " << new_files.size() << L" new files." << std::endl;
+        }
+        {
+            std::lock_guard<std::mutex> lock(log_mtx);
+            log_file.open(log_path, std::ios::app);
+            log_file << get_formatted_time();
+            log_file << L": Scheduler finished scanning. Found " << new_files.size() << " new file(s)." << std::endl;
+            log_file.close();
+        }
+        if(new_files.size() != 0){
+            index.add_files(new_files);
+        }
     }
 }
 
@@ -531,7 +575,7 @@ int main()
     log_file.close();
 
     std::wcout << L"Building the file index." << std::endl;
-    inverted_index index(files);
+    inverted_index index(files, DEBUG);
     std::wcout << L"Done." << std::endl;
 
     log_file.open(log_path, std::ios::app);
@@ -621,7 +665,11 @@ int main()
     log_file.open(log_path, std::ios::app);
     log_file << get_formatted_time();
     log_file << L": Listening for connections." << std::endl;
+    log_file << L": Starting scheduler." << std::endl;
     log_file.close();
+
+    std::thread scheduler_thread = std::thread(scheduler_function, std::ref(curr), std::ref(index), std::ref(log_path));
+    scheduler_thread.detach();
 
     std::map<size_t, client_data_t> client_data;
     int addr_client_size = sizeof(addr_client);

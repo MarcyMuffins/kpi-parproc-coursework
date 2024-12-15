@@ -17,8 +17,6 @@
 
 //TODO: Add word position tracking?
 
-#define DEBUG false
-
 using read_write_lock = std::shared_mutex;
 using read_lock = std::shared_lock<read_write_lock>;
 using write_lock = std::unique_lock<read_write_lock>;
@@ -30,14 +28,15 @@ private:
 	//list of files already processed
 	std::unordered_set<std::wstring> processed_files;
 	mutable read_write_lock m_rw_lock;
+    bool DEBUG = false;
 
 public:
-	inverted_index(std::vector<std::wstring>& filenames);
-	void add_file(std::wstring& filename);
+	inverted_index(std::vector<std::wstring>& filenames, bool debug);
+	void add_files(std::vector<std::wstring>& filenames);
 	void debug_list_files();
 	std::vector<std::wstring> search(std::vector<std::wstring>& word_query);
 	std::wstring clean_string(std::wstring input);
-	
+    std::unordered_set<std::wstring> get_processed_files();
 };
 
 
@@ -63,7 +62,8 @@ std::wstring inverted_index::clean_string(std::wstring input) {
 }
 
 
-inverted_index::inverted_index(std::vector<std::wstring>& filenames) {
+inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_debug) {
+    DEBUG = is_debug;
     write_lock _(m_rw_lock);
     int count = 0;
     int progress = 0;
@@ -112,31 +112,30 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames) {
 }
 
 
-void inverted_index::add_file(std::wstring& filename) {
+void inverted_index::add_files(std::vector<std::wstring>& filenames) {
     write_lock _(m_rw_lock);
-    std::wifstream file(filename);
-    if (!file.is_open()) {
-        std::wcerr << L"Unable to open the file!" << std::endl;
-        return;
-    }
-
-    std::wstringstream buffer;
-    buffer << file.rdbuf(); // Читаємо файл у рядок
-    file.close();
-
-    std::wstring fileContent = buffer.str();
-    //std::cout << "File contents:\n" << fileContent << "\n" << std::endl;
-
-    // Очищення вмісту
-    std::wstring cleanedContent = clean_string(fileContent);
-    //std::cout << "Cleaned text:\n" << cleanedContent << "\n" << std::endl;
-
-    std::wistringstream stream(cleanedContent);
-    std::wstring word;
-    std::vector<std::wstring> temp;
-    while (stream >> word) {
-        if (std::count(dict[word].begin(), dict[word].end(), filename) == 0) {
-            dict[word].push_back(filename);
+    for (auto i : filenames) {
+        if(!processed_files.contains(i)){
+            std::wifstream file(i);
+            if (!file.is_open()) {
+                std::wcerr << L"Unable to open the file!" << std::endl;
+                return;
+            }
+            file.imbue(std::locale("en_US.UTF-8"));
+            std::wstringstream buffer;
+            buffer << file.rdbuf();
+            file.close();
+            std::wstring file_content = buffer.str();
+            std::wstring cleaned_content = clean_string(file_content);
+            std::wistringstream stream(cleaned_content);
+            std::wstring word;
+            std::vector<std::wstring> temp;
+            while (stream >> word) {
+                if (std::count(dict[word].begin(), dict[word].end(), i) == 0) {
+                    dict[word].push_back(i);
+                }
+            }
+            processed_files.insert(i);
         }
     }
 }
@@ -220,4 +219,9 @@ std::vector<std::wstring> inverted_index::search(std::vector<std::wstring>& word
         }
         return found_files;
     }
+}
+
+std::unordered_set<std::wstring> inverted_index::get_processed_files(){
+    read_lock _(m_rw_lock);
+    return processed_files;
 }
