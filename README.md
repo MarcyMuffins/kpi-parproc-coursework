@@ -1,4 +1,4 @@
-# Paralell processing/Inverted index coursework project
+# Parallel processing/Inverted index coursework project
 
 ## UML Diagrams
 
