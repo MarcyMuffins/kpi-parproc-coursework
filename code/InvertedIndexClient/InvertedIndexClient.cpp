@@ -52,8 +52,8 @@ int main()
     _setmode(_fileno(stdin), _O_U16TEXT);
 
 
-    std::wcout << L"Note: This is purely debug code, it will not do any checks on whether or not your inputs are appropriate." << std::endl;
-    std::wcout << "Enter anything to start client: ";
+    //std::wcout << L"Note: This is purely debug code, it will not do any checks on whether or not your inputs are appropriate." << std::endl;
+    //std::wcout << "Enter anything to start client: ";
     std::wcout << L"=== STARTING CLIENT ===" << std::endl;
 
     // Initialize WSA variables

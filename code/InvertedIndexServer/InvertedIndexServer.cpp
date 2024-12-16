@@ -27,7 +27,7 @@
 
 namespace fs = std::filesystem;
 
-#define DEBUG true
+bool DEBUG = false;
 
 std::mutex print_mtx;
 std::mutex log_mtx;
@@ -589,10 +589,20 @@ int main()
 {
     _setmode(_fileno(stdout), _O_U16TEXT);
     _setmode(_fileno(stdin), _O_U16TEXT);
-    const int worker_count = 8;
+    int worker_count = 8;
 
-    std::wcout << L"Note: This is purely debug code, it will not do any checks on whether or not your inputs are appropriate." << std::endl;
-
+    //std::wcout << L"Note: This is purely debug code, it will not do any checks on whether or not your inputs are appropriate." << std::endl;
+    
+    //Debug mode?
+    std::wstring choice;
+    std::wcout << L"Enable debug mode? y/n" << std::endl;
+    std::wcin >> choice;
+    if (choice == L"y") {
+        DEBUG = true;
+    }
+    std::wcout << L"Enter number of workers" << std::endl;
+    std::wcin >> worker_count;
+    //Number of threads?
   
     std::wstring log_name = get_formatted_time();
     log_name += L".log";
@@ -646,8 +656,7 @@ int main()
     log_file << L": Done building index." << std::endl;
     log_file.close();
 
-    std::wstring choice;
-    if(DEBUG && false){
+    if(DEBUG){
         std::wcout << L"Do you want to print out the index? (It will be really long) y/n" << std::endl;
         std::wcin >> choice;
         if (choice == L"y") {

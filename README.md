@@ -21,8 +21,6 @@ The server consists of three main structures:
 
 ## TODO:
 
- - Finalize server and client inputs (db path, debug mode, etc)
-
  - More application protocol comments
 
  - Pray to Dennis Ritchie that the code works
