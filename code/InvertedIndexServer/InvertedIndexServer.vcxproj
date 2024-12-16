@@ -140,7 +140,6 @@
     <ClCompile Include="InvertedIndexServer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="client_data_t.h" />
     <ClInclude Include="inverted_index.h" />
     <ClInclude Include="task_queue.h" />
     <ClInclude Include="thread_pool.h" />

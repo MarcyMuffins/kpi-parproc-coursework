@@ -43,17 +43,18 @@ public:
 std::wstring inverted_index::clean_string(std::wstring input) {
     std::wstring cleaned;
 
-    // видалення тегу <br />
+    // Removing the <br /> tag
     size_t pos;
     std::wstring sub = L"<br />";
     while ((pos = input.find(sub)) != std::wstring::npos) {
         input.erase(pos, sub.length());
         input.insert(pos, L" ");
     }
+    // Sanitizing the string. everything not alphanumeric or space will be turned into a space, everything else is made lowercase
     for (int i = 0; i < input.length(); i++) {
         wchar_t ch = input.at(i);
         if (std::iswalnum(ch) || std::iswspace(ch)) {
-            cleaned += std::towlower(ch); // Забираємо капіталізацію
+            cleaned += std::towlower(ch);
         } else {
             cleaned += L' ';
         }
@@ -69,8 +70,9 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_deb
     int progress = 0;
     int size = filenames.size();
     for (auto i : filenames) {
+        // Probably redundant, but in case the filenames vector SOMEHOW contains double entries, the index will only store them once
+        // Minor performance hit
         if(!processed_files.contains(i)){
-
             std::wifstream file(i);
             if (!file.is_open()) {
                 std::wcerr << L"Unable to open the file!" << std::endl;
@@ -79,13 +81,12 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_deb
             file.imbue(std::locale("en_US.UTF-8"));
 
             std::wstringstream buffer;
-            buffer << file.rdbuf(); // Читаємо файл у рядок
+            buffer << file.rdbuf();
             file.close();
 
             std::wstring file_content = buffer.str();
             //std::cout << "File contents:\n" << fileContent << "\n" << std::endl;
 
-            // Очищення вмісту
             std::wstring cleaned_content = clean_string(file_content);
             //std::cout << "Cleaned text:\n" << cleanedContent << "\n" << std::endl;
 
@@ -93,7 +94,7 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_deb
             std::wstring word;
             std::vector<std::wstring> temp;
             while (stream >> word) {
-                //std::wcout << word << std::endl;
+                // Takes longer and longer based on amount of files already processed
                 if (std::count(dict[word].begin(), dict[word].end(), i) == 0) {
                     dict[word].push_back(i);
                 }
@@ -111,7 +112,7 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_deb
     }
 }
 
-
+// Basically identical to the initialization
 void inverted_index::add_files(std::vector<std::wstring>& filenames) {
     write_lock _(m_rw_lock);
     for (auto i : filenames) {
@@ -156,56 +157,23 @@ std::vector<std::wstring> inverted_index::search(std::vector<std::wstring>& word
     if (word_query.size() == 0) {
         return found_files;
     } else if (word_query.size() == 1) {
-
-        //debug
-        /*
-        for (const auto& i : word_query) {
-        std::cout << '"' << i << "\" found in:" << "\n";
-        for (const auto& j : dict[i]) {
-        std::cout << ' ' << j << '\n';
-        }
-        std::cout << std::endl;
-        }
-        */
-        //debug
-
         std::wstring query = word_query[0];
         found_files = dict[query];
         return found_files;
     } else {
+        // Scan every queried word individually and only save the files that overlap into the next loop
+        // At the end you'll only have the files which contain all words
         std::wstring query = word_query[0];
         std::vector<std::wstring> next_found_files;
 
         found_files = dict[query];
 
-        //debug
-        /*
-        for (const auto& i : word_query) {
-        std::cout << i << " found in:" << "\n";
-        for (const auto& j : dict[i]) {
-        std::cout << ' ' << j << '\n';
-        }
-        std::cout << std::endl;
-        }
-        */
-        //debug
-
-        //How the next bit SHOULD work
-        /*
-        Find list of files from the first query
-
-        For every word in the query after it 
-        Fetch next list of files for the next word
-
-
-
-        */
-
         std::vector<std::wstring> overlapped_found_files;
-        //going through every subsequent word in the query
+        // Going through every subsequent word in the query
+        // Three deep nested loop hurts my soul
         for (int i = 1; i < word_query.size(); i++) {
             next_found_files = dict[word_query[i]];
-            //comparing every file in the previous query overlap with the next query
+            // Comparing every file in the previous query overlap with the next query
             for (int j = 0; j < found_files.size(); j++) {
                 for (int k = 0; k < next_found_files.size(); k++) {
                     if (found_files[j] == next_found_files[k] 
@@ -222,6 +190,6 @@ std::vector<std::wstring> inverted_index::search(std::vector<std::wstring>& word
 }
 
 std::unordered_set<std::wstring> inverted_index::get_processed_files(){
-    read_lock _(m_rw_lock);
+    write_lock _(m_rw_lock);
     return processed_files;
 }

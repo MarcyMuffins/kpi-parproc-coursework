@@ -1,11 +1,13 @@
 #pragma once
-#include "task_queue.h"
+
 #include <vector>
 #include <functional>
 #include <unordered_map>
 #include <chrono>
 #include <iostream>
 #include <string>
+
+#include "task_queue.h"
 
 using std::chrono::nanoseconds;
 using std::chrono::duration_cast;

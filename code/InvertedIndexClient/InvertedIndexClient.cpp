@@ -26,17 +26,18 @@ namespace fs = std::filesystem;
 std::wstring clean_string(std::wstring input) {
     std::wstring cleaned;
 
-    // видалення тегу <br />
+    // Removing the <br /> tag
     size_t pos;
     std::wstring sub = L"<br />";
     while ((pos = input.find(sub)) != std::wstring::npos) {
         input.erase(pos, sub.length());
         input.insert(pos, L" ");
     }
+    // Sanitizing the string. everything not alphanumeric or space will be turned into a space, everything else is made lowercase
     for (int i = 0; i < input.length(); i++) {
         wchar_t ch = input.at(i);
         if (std::iswalnum(ch) || std::iswspace(ch)) {
-            cleaned += std::towlower(ch); // Забираємо капіталізацію
+            cleaned += std::towlower(ch);
         } else {
             cleaned += L' ';
         }
@@ -46,16 +47,13 @@ std::wstring clean_string(std::wstring input) {
 
 int main()
 {
+    // Making sure the input and output streams accept UTF-16
     _setmode(_fileno(stdout), _O_U16TEXT);
     _setmode(_fileno(stdin), _O_U16TEXT);
 
 
     std::wcout << L"Note: This is purely debug code, it will not do any checks on whether or not your inputs are appropriate." << std::endl;
     std::wcout << "Enter anything to start client: ";
-    std::wstring ws;
-    std::wcin >> ws;
-    std::wcin.clear();
-    std::wcout.clear();
     std::wcout << L"=== STARTING CLIENT ===" << std::endl;
 
     // Initialize WSA variables
@@ -109,21 +107,22 @@ int main()
     }
     std::wcout << "Server started processing the client." << std::endl;
 
-    // Send query type (Q - query, A - admin)
+    char buffer[buffer_size] = {0};
+    // Send query type (C - client, A - admin)
     std::wcout << std::endl << L"Select query type:" << std::endl;
     std::wcout << " 1 - Word query. Search for one or more words in the database." << std::endl;
     std::wcout << " 2 - Add file(s). Enter a folder whose files will be sent over to be added to the index." << std::endl;
     int choice = 0;
     while(choice != 1 && choice != 2){
         std::wcin >> choice;
-
+        // Handling error inputs
         if (std::wcin.fail()) {
+            // Clearing the wcin buffer
             std::wcin.clear();
             std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
             std::wcout << L"Invalid input, try again." << std::endl;
             continue;
         }
-
         if(choice != 1 && choice != 2){
             std::wcout << "Invalid choice, try again." << std::endl;
         } else {
@@ -132,7 +131,7 @@ int main()
     }
 
     char type_buf[2] = {0};
-    // Branch for query type 
+    //branch for query type 
     if(choice == 1){
         type_buf[0] = 'C';
         if (send(client_socket, type_buf, sizeof(type_buf), 0) < 0) {
@@ -145,10 +144,8 @@ int main()
         std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
         getline(std::wcin, query);
         query = clean_string(query);
-        //std::wcout << L"Query to be sent:" << std::endl;
-        //std::wcout << query << std::endl;
 
-        // Allocate a buffer and perform the conversion
+        // Converting a wstring to a regular string, Windows specific
         std::string query_string(buffer_size, '\0');
         WideCharToMultiByte(CP_UTF8, 0, query.c_str(), -1, &query_string[0], buffer_size, nullptr, nullptr);
 
@@ -157,7 +154,6 @@ int main()
             closesocket(client_socket);
             return -1;
         }
-
 
         char status_buf[2] = {0};
         if (recv(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
@@ -191,6 +187,7 @@ int main()
             closesocket(client_socket);
             return -1;
         }
+        // Extracting the 4 byte int from the buffer, little endian
         int n_files = (n_files_buf[0] << 24) | (n_files_buf[1] << 16) | (n_files_buf[2] << 8) | (n_files_buf[3]);
         if (n_files == 0){
             std::wcout << "No files found, exiting." << std::endl;
@@ -200,7 +197,6 @@ int main()
         }
         std::wcout << n_files << L" files found." << std::endl;
         std::vector<std::wstring> found_files;
-        char buffer[buffer_size] = {0};
         for (int i = 0; i < n_files; i++){
             if (recv(client_socket, buffer, buffer_size, 0) < 0) {
                 std::wcout << L"Error receiving message" << std::endl;
@@ -214,7 +210,7 @@ int main()
             found_files.push_back(filepath);
             std::wcout << " " << i+1 << ": " << filepath << std::endl;
         }
-        //save loop
+        // File view/save loop
         while(1){
             std::wcout << "Select a number from 1-" << n_files << " to preview the file. Type 0 to exit." << std::endl;
             int choice = 0;
@@ -226,6 +222,7 @@ int main()
                 std::wcin >> choice;
             }
             unsigned char choice_buf[5] = {0};
+            // Encoding the 4 byte int into the buffer, little endian
             choice_buf[0] = (choice >> 24) & 0xFF;
             choice_buf[1] = (choice >> 16) & 0xFF;
             choice_buf[2] = (choice >> 8) & 0xFF;
@@ -296,6 +293,7 @@ int main()
         if (send(client_socket, type_buf, sizeof(type_buf), 0) < 0) {
             std::wcout << L"Error sending message" << std::endl;
             closesocket(client_socket);
+            WSACleanup();
             return -1;
         }
         std::wcout << L"Enter full path for the folder you want scanned:" << std::endl;
@@ -309,7 +307,6 @@ int main()
         std::wcout << L"Scanning folder and subfolders for files." << std::endl;
         for (const auto& entry : fs::recursive_directory_iterator(scan_folder, fs::directory_options::follow_directory_symlink)) {
             if (fs::is_regular_file(entry)) {
-                //std::cout << entry.path() << " " << entry.file_size() << std::endl;
                 files.push_back(entry.path().generic_wstring());
             }
         }
@@ -321,7 +318,9 @@ int main()
             std::wcout << L"Found no files, exiting." << std::endl;
             if (send(client_socket, (char*)n_files_buf, sizeof(n_files_buf), 0) < 0) {
                 std::wcout << L"Error sending message" << std::endl;
-                return 0;
+                closesocket(client_socket);
+                WSACleanup();
+                return -1;
             }
             closesocket(client_socket);
             WSACleanup();
@@ -343,14 +342,70 @@ int main()
         n_files_buf[3] = n_files & 0xFF; 
         if (send(client_socket, (char*)n_files_buf, sizeof(n_files_buf), 0) < 0) {
             std::wcout << L"Error sending message" << std::endl;
-            return 0;
+            closesocket(client_socket);
+            WSACleanup();
+            return -1;
         }
         for(int i = 0; i < n_files; i++){
-            //send buffer for filename (truncate to current directory)
-            //send 4+1 bytes amount of full blocks
-            //send N blocks
+            // Sending the relative filepath so the correct folders are created by the server in the database location
+            fs::path filepath(files[i]);
+            std::wstring relative_filepath = fs::relative(filepath, scan_folder).wstring();
+
+            std::string relative_filepath_c(buffer_size, '\0');
+            WideCharToMultiByte(CP_UTF8, 0, relative_filepath.c_str(), -1, &relative_filepath_c[0], buffer_size, nullptr, nullptr);
+            if (send(client_socket, relative_filepath_c.c_str(), buffer_size, 0) < 0) {
+                std::wcout << L"Error sending message" << std::endl;
+                closesocket(client_socket);
+                WSACleanup();
+                return -1;
+            }
+
+            std::wifstream file(files[i]);
+            if (!file.is_open()) {
+                std::wcout << "Unable to open file" << std::endl;
+                closesocket(client_socket);
+                WSACleanup();
+                return -1;
+            }
+            // Open the file as en_US.UTF-8, sorry non latin alphabets
+            file.imbue(std::locale("en_US.UTF-8"));
+            std::wstringstream file_buffer;
+            file_buffer << file.rdbuf();
+            file.close();
+            std::wstring file_content = file_buffer.str();
+            // First call of WideCharToMultiByte() to get the length needed 
+            int file_content_size = WideCharToMultiByte(CP_UTF8, 0, &file_content[0], -1, nullptr, 0, nullptr, nullptr);
+            std::string file_content_s(file_content_size, '\0');
+            // Second call to transfer data
+            WideCharToMultiByte(CP_UTF8, 0, &file_content[0], -1, &file_content_s[0], file_content_size, nullptr, nullptr);
+            unsigned short n_file_content_blocks = (file_content_size / buffer_size) + 1;
+            unsigned char filesize_buf[3] = {0};
+            filesize_buf[0] = (n_file_content_blocks >> 8) & 0xFF;
+            filesize_buf[1] = n_file_content_blocks & 0xFF; 
+            
+            if (send(client_socket, (char*)filesize_buf, sizeof(filesize_buf), 0) < 0) {
+                std::wcout << L"Error sending message" << std::endl;
+                closesocket(client_socket);
+                WSACleanup();
+                return -1;
+            }
+
+            for (int i = 0; i < n_file_content_blocks; i++){
+                memset(buffer, '\0', sizeof(buffer));
+                int index = i * (buffer_size-1);
+                int copy_len = buffer_size-1;
+                if(index + copy_len > file_content_s.length()){
+                    copy_len = file_content_s.length() - index;
+                }
+                memcpy(buffer, &file_content_s[index], copy_len);
+                if (send(client_socket, buffer, buffer_size, 0) < 0) {
+                    std::wcout << L"Error sending message" << std::endl;
+                    closesocket(client_socket);
+                    WSACleanup();
+                    return -1;
+                }
+            }
         }
-        //wait for server to say files were added
     }
     closesocket(client_socket);
     WSACleanup();
