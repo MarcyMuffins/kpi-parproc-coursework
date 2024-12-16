@@ -131,8 +131,15 @@ int main()
         }
     }
 
+    char type_buf[2] = {0};
     // Branch for query type 
     if(choice == 1){
+        type_buf[0] = 'C';
+        if (send(client_socket, type_buf, sizeof(type_buf), 0) < 0) {
+            std::wcout << L"Error sending message" << std::endl;
+            closesocket(client_socket);
+            return -1;
+        }
         std::wcout << L"Enter your word query (space separated words, all punctuation will be ignored):" << std::endl;
         std::wstring query;
         std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
@@ -177,40 +184,6 @@ int main()
             closesocket(client_socket);
             return -1;
         }
-
-        //mirrored poopcode
-        /*
-        int ping = 2;
-        std::wcout << "Pinging server for status every " << ping << " seconds." << std::endl;
-        char ping_buf[2] = {'S', '\0'};
-        char status_buf[2] = {0};
-        while(true){
-            if (send(client_socket, ping_buf, sizeof(ping_buf), 0) < 0) {
-                std::wcout << L"Error sending message" << std::endl;
-                closesocket(client_socket);
-                return -1;
-            }
-            if (recv(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
-                std::wcout << L"Error receiving message" << std::endl;
-                closesocket(client_socket);
-                return -1;
-            }
-            char status = status_buf[0];
-            if (status == 'Q'){
-                std::wcout << "Task is waiting in queue." << std::endl;
-            } else if (status == 'P'){
-                std::wcout << "Task is being processed." << std::endl;
-            } else if (status == 'E'){
-                std::wcout << "No such task exists." << std::endl;
-                std::wcout << "How did you get here?" << std::endl;
-            } else {
-                std::wcout << "Task is complete!" << std::endl;
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(ping));
-        }*/
-
-        //std::wcout << "Receiving amount of files found." << std::endl;
         
         unsigned char n_files_buf[5] = {0};
         if (recv(client_socket, (char*)n_files_buf, sizeof(n_files_buf), 0) < 0) {
@@ -319,29 +292,66 @@ int main()
             }
         }
     } else {
-
-    }
-
-    
-
-    // A
-    //
-
-    /*
-    // Sending data to the server
-    while(1){
-        char buffer[1024];
-        std::wcout << L"Enter the message: ";
-        std::cin.getline(buffer, 1024);
-        int sbyte_count = send(client_socket, buffer, 1024, 0);
-        if (sbyte_count == SOCKET_ERROR) {
-            std::wcout << L"Client send error: " << WSAGetLastError() << std::endl;
+        type_buf[0] = 'A';
+        if (send(client_socket, type_buf, sizeof(type_buf), 0) < 0) {
+            std::wcout << L"Error sending message" << std::endl;
+            closesocket(client_socket);
             return -1;
-        } else {
-            std::wcout << L"Client: Sent " << sbyte_count << " bytes" << std::endl;
         }
-    }*/
+        std::wcout << L"Enter full path for the folder you want scanned:" << std::endl;
+        std::wstring p;
+        std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
+        std::wcin >> p;
+        fs::path scan_folder(p);
+        std::vector<std::wstring> files;
+        std::wcout << std::endl;
 
+        std::wcout << L"Scanning folder and subfolders for files." << std::endl;
+        for (const auto& entry : fs::recursive_directory_iterator(scan_folder, fs::directory_options::follow_directory_symlink)) {
+            if (fs::is_regular_file(entry)) {
+                //std::cout << entry.path() << " " << entry.file_size() << std::endl;
+                files.push_back(entry.path().generic_wstring());
+            }
+        }
+        std::wcout << L"Finished scanning, found " << files.size() << L" files." << std::endl;
+
+        unsigned int n_files = files.size();
+        unsigned char n_files_buf[5] = {0};
+        if (files.size() == 0){
+            std::wcout << L"Found no files, exiting." << std::endl;
+            if (send(client_socket, (char*)n_files_buf, sizeof(n_files_buf), 0) < 0) {
+                std::wcout << L"Error sending message" << std::endl;
+                return 0;
+            }
+            closesocket(client_socket);
+            WSACleanup();
+            return 0;
+        }
+
+        std::wcout << L"Do you want to list the files? y/n" << std::endl;
+        std::wstring list;
+        std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
+        getline(std::wcin, list);
+        if(list[0] == 'y'){
+            for(const auto& i : files){
+                std::wcout << i << std::endl;
+            }
+        }
+        n_files_buf[0] = (n_files >> 24) & 0xFF;
+        n_files_buf[1] = (n_files >> 16) & 0xFF;
+        n_files_buf[2] = (n_files >> 8) & 0xFF;
+        n_files_buf[3] = n_files & 0xFF; 
+        if (send(client_socket, (char*)n_files_buf, sizeof(n_files_buf), 0) < 0) {
+            std::wcout << L"Error sending message" << std::endl;
+            return 0;
+        }
+        for(int i = 0; i < n_files; i++){
+            //send buffer for filename (truncate to current directory)
+            //send 4+1 bytes amount of full blocks
+            //send N blocks
+        }
+        //wait for server to say files were added
+    }
     closesocket(client_socket);
     WSACleanup();
     return 0;
