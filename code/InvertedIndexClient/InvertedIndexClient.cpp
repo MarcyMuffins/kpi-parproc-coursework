@@ -168,6 +168,7 @@ int main()
             closesocket(client_socket);
             return -1;
         }
+
         if (recv(client_socket, status_buf, sizeof(status_buf), 0) < 0) {
             std::wcout << L"Error receiving message" << std::endl;
             closesocket(client_socket);
@@ -353,6 +354,7 @@ int main()
 
             std::string relative_filepath_c(buffer_size, '\0');
             WideCharToMultiByte(CP_UTF8, 0, relative_filepath.c_str(), -1, &relative_filepath_c[0], buffer_size, nullptr, nullptr);
+            std::wcout << relative_filepath << std::endl;
             if (send(client_socket, relative_filepath_c.c_str(), buffer_size, 0) < 0) {
                 std::wcout << L"Error sending message" << std::endl;
                 closesocket(client_socket);

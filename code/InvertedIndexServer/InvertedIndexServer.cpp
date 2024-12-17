@@ -54,7 +54,6 @@ inline void handle_disconnect(size_t id, SOCKET& client_socket, fs::path& log_pa
         log_file.close();
 
     }
-    //TODO before closing print log to file
     closesocket(client_socket);
 }
 
@@ -385,10 +384,13 @@ void process_client(size_t id, SOCKET client_socket, inverted_index& index, fs::
         std::lock_guard<std::mutex> lock(log_mtx);
         log_file.open(log_path, std::ios::app);
         log_file << get_formatted_time();
-        log_file << L": Client " << id << " found query in " << n_files << " files:" << std::endl;
+        // Main culprit of large log files
+        // Temporarily removing cuz yeag
+        log_file << L": Client " << id << " found query in " << n_files << " files." << std::endl;
+        /*
         for(const auto& i : result){
             log_file << " " << i << std::endl;
-        }
+        }*/
         log_file.close();
     }
     if(DEBUG){
@@ -648,7 +650,9 @@ int main()
     log_file.close();
 
     std::wcout << L"Building the file index." << std::endl;
+
     inverted_index index(files, DEBUG);
+
     std::wcout << L"Done." << std::endl;
 
     log_file.open(log_path, std::ios::app);
