@@ -1,78 +1,56 @@
 @startuml
 actor Client as client
 participant "Main Server Thread" as server
-participant "Client Thread" as client_thread
 participant "Thread Pool" as thread_pool
+participant "Client Thread" as client_thread
 database "Inverted Index" as index
 
 == Initialization ==
 
-server -> thread_pool : Create Thread Pool
 server -> index : Build Index
+server -> thread_pool : Create Thread Pool
 
 == Client Connection ==
 
 client -> server : Start Connection
-server -> client_thread : Create Thread
+server -> thread_pool : Create Thread
+thread_pool -> client_thread : Start Processing
+client_thread --> client : Signal processing start
 
 == Client Requests ==
 
 client -> client_thread : Send query type (search)
-client -> client_thread : Send search query
-client_thread -> thread_pool : Start task
+client -> client_thread : Send query words
 thread_pool -> index : Start search
-client -> client_thread : Request search status
-client_thread -> thread_pool : Get task status
-thread_pool --> client_thread : Task status
 client_thread --> client : Current task status (in progress)
 ...
-index --> thread_pool : Search result
+index --> client_thread : Search result
+client_thread --> client : Current task status (completed)
+client_thread --> client : Number of files found (N)
+client_thread --> client : Name of file 1
+client_thread --> client : Name of file 2
 ...
-client -> client_thread : Request search status
-client_thread -> thread_pool : Get task status
-thread_pool --> client_thread : Task status
-client_thread --> client : Current task status (complete, result)
+client_thread --> client : Name of file N
+client -> client_thread : Fetch file F
+client_thread --> client : Number of chunks in file F
+client_thread --> client : Name of file F
+client_thread --> client : Chunk 1 of file F
+...
+client_thread --> client : Chunk M of file F
+...
+client -> client_thread : Fetch file 0 (Signal to stop)
+client_thread -> thread_pool : End task
 
-== Admin Request (Adding File) ==
-
+== Admin Request (Adding Files) ==
 client -> client_thread : Send query type (add file)
-client -> client_thread : Send filename
-client_thread -> thread_pool : Start task
-thread_pool -> index : Add file
-client -> client_thread : Request adding file status
-client_thread -> thread_pool : Get task status
-thread_pool --> client_thread : Task status
-client_thread --> client : Current task status (in progress)
+client -> client_thread : Send number of files to be added
+client -> client_thread : Send name of file 1
+client -> client_thread : Send number of chunks in file 1
+client -> client_thread : Send chunk 1 of file 1
+client -> client_thread : Send chunk 2 of file 1
 ...
-index --> thread_pool : Error: No such file found
-...
-client -> client_thread : Request adding file status
-client_thread -> thread_pool : Get task status
-thread_pool --> client_thread : Task status
-client_thread --> client : Current task status (Error: No such file found)
-
-client -> client_thread : Send filename
-client_thread -> thread_pool : Start task
-thread_pool -> index : Add file
-client -> client_thread : Request adding file status
-client_thread -> thread_pool : Get task status
-thread_pool --> client_thread : Task status
-client_thread --> client : Current task status (in progress)
-...
-index --> thread_pool : File added successfully 
-...
-client -> client_thread : Request adding file status
-client_thread -> thread_pool : Get task status
-thread_pool --> client_thread : Task status
-client_thread --> client : Current task status (success)
-
-== Admin Request (Review Log) ==
-
-client -> client_thread : Send query type (print log)
-client_thread --> client : Send log size
-client_thread --> client : Send log part 1
-...
-client_thread --> client : Send log part N
-
+client -> client_thread : Send chunk M of file N
+client_thread -> index : Process files
+client_thread -> thread_pool : End task
 
 @enduml

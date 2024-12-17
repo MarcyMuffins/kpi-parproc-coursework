@@ -1,22 +1,13 @@
 @startuml
 left to right direction
 class server{
-     {field} -PORT : int
      {field} -pool : thread_pool
-     {field} -is_logging : bool
-     {field} -file_index : inverted_index
-     {field} -event_log : std::vector<event>
-     {method} +init(bool is_logging) : int
-     {method} -process_connection() : void
-     {method} -function_user() : void
-     {method} -function_admin() : void
-     {method} 
-}
-
-struct event{
-     {field} timestamp : time_t
-     {field} client_ip : std::string
-     {field} result : std::string
+     {field} -index : inverted_index
+     {method} -process_client() : void
+     {method} -receive_buffer() : bool
+     {method} -handle_disconnect() : void
+     {method} -scheduler_function() void
+     {method} -get_formatted_time() std::wstring
 }
 
 class thread_pool{
@@ -66,28 +57,20 @@ class task_queue{
 }
 
 class inverted_index{
-     {field} -word : struct
-     {field} -dict : std::map<string,vector<word>> 
-     {field} -files : std::vector<string> 
-     {method} +add_file(std:string filename) : void 
-     {method} +list_files() : void 
-     {method} +search(std::string word_query, bool show_context) : void 
+     {field} -dict : std::map<std::wstring, std::vector<std::wstring>>
+     {field} -processed_files : std::unordered_set<std::wstring> 
+     {method} +add_files((std::vector<std::wstring>& filenames) : void 
+     {method} +debug_list_files() : void 
+     {method} +search(std::vector<std::wstring>& word_query) : std::vector<std::wstring> 
+     {method} +clean_string(std::wstring input) : std::wstring
+     {method} +get_processed_files() : std::unordered_set<std::wstring>
 }
-
-struct word{
-     {field} filename : string
-     {field} line : int
-     {field} col : int
-}
-
 
 server::pool <.. thread_pool
-server::event_log <-- event
 thread_pool::m_tasks <.. task_queue
 thread_pool::task_status <-- task_status
 task_status::status <-- status
 
 
 server::file_index <.. inverted_index
-inverted_index::word <-- word
 @enduml
