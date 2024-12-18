@@ -10,6 +10,7 @@
 #include <sstream>
 #include <ranges>
 #include <unordered_set>
+#include <algorithm>
 #include <cwctype>
 #include <io.h>
 #include <fcntl.h>
@@ -28,7 +29,7 @@ private:
 	//list of files already processed
 	std::unordered_set<std::wstring> processed_files;
 	mutable read_write_lock m_rw_lock;
-    bool DEBUG = false;
+    bool debug = false;
 
 public:
 	inverted_index(std::vector<std::wstring>& filenames, bool debug);
@@ -64,7 +65,7 @@ std::wstring inverted_index::clean_string(std::wstring input) {
 
 
 inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_debug) {
-    DEBUG = is_debug;
+    debug = is_debug;
     write_lock _(m_rw_lock);
     int count = 0;
     int progress = 0;
@@ -73,7 +74,7 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_deb
         // Probably redundant, but in case the filenames vector SOMEHOW contains double entries, the index will only store them once
         // Minor performance hit
         if(!processed_files.contains(i)){
-            std::wifstream file(i);
+            std::wifstream file(i.c_str());
             if (!file.is_open()) {
                 std::wcerr << L"Unable to open the file!" << std::endl;
                 return;
@@ -101,7 +102,7 @@ inverted_index::inverted_index(std::vector<std::wstring>& filenames, bool is_deb
             }
             processed_files.insert(i);
         }
-        if (DEBUG) {
+        if (debug) {
             count++;
             if (count >= size / 10) {
                 count = 0;
@@ -117,7 +118,7 @@ void inverted_index::add_files(std::vector<std::wstring>& filenames) {
     write_lock _(m_rw_lock);
     for (auto i : filenames) {
         if(!processed_files.contains(i)){
-            std::wifstream file(i);
+            std::wifstream file(i.c_str());
             if (!file.is_open()) {
                 std::wcerr << L"Unable to open the file!" << std::endl;
                 return;

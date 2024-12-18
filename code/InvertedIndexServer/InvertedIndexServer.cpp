@@ -301,9 +301,9 @@ void process_client(size_t id, SOCKET client_socket, inverted_index& index, std:
         std::lock_guard<std::mutex> lock(log_mtx);
         //log_file.open(log_path, std::ios::app);
         log_file << get_formatted_time();
-        log_file << L": Client " << id << " query:" << std::endl;
+        log_file << L": Client " << id << " query:";
         for(const auto& i : query){
-            log_file << i << " ";
+            log_file << " " << i;
         }
         log_file << std::endl;
         //log_file.close();
@@ -455,7 +455,7 @@ void process_client(size_t id, SOCKET client_socket, inverted_index& index, std:
             std::wcout << L"CLT " << id << L" requested file " << choice << std::endl;
         }
         choice--;
-        std::wifstream file(result[choice]);
+        std::wifstream file(result[choice].c_str());
         if (!file.is_open()) {
             {
                 std::lock_guard<std::mutex> lock(log_mtx);
@@ -531,15 +531,15 @@ void process_client(size_t id, SOCKET client_socket, inverted_index& index, std:
 }
 
 // Scheduler scans database folder for new files every 30 seconds
-void scheduler_function(fs::path dir, inverted_index& index, fs::path& log_path){
+void scheduler_function(fs::path dir, inverted_index& index, std::wofstream& log_file){
     const int delay = 30;
-    std::wofstream log_file;
+    //std::wofstream log_file;
     {
         std::lock_guard<std::mutex> lock(log_mtx);
-        log_file.open(log_path, std::ios::app);
+        //log_file.open(log_path, std::ios::app);
         log_file << get_formatted_time();
         log_file << L": Started scheduler. Looking for new files every " << delay << L" seconds." << std::endl;
-        log_file.close();
+        //log_file.close();
 
     }
     if(DEBUG){
@@ -554,10 +554,10 @@ void scheduler_function(fs::path dir, inverted_index& index, fs::path& log_path)
         }
         {
             std::lock_guard<std::mutex> lock(log_mtx);
-            log_file.open(log_path, std::ios::app);
+            //log_file.open(log_path, std::ios::app);
             log_file << get_formatted_time();
             log_file << L": Scheduler scanning for new files." << std::endl;
-            log_file.close();
+            //log_file.close();
         }
         std::unordered_set<std::wstring> processed_files = index.get_processed_files();
         std::vector<std::wstring> new_files;
@@ -629,6 +629,7 @@ int main()
     std::wcout << std::endl;
 
     log_file.open(log_path, std::ios::app);
+    log_file.imbue(std::locale("en_US.UTF-8"));
     log_file << get_formatted_time();
     log_file << L": Start scanning files." << std::endl;
     //log_file.close();
@@ -649,10 +650,11 @@ int main()
     //log_file.close();
 
     std::wcout << L"Building the file index." << std::endl;
-
+    //auto start = high_resolution_clock::now();
     inverted_index index(files, DEBUG);
-
+    //auto end = high_resolution_clock::now();
     std::wcout << L"Done." << std::endl;
+    //std::wcout << (double)((std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()) * 0.001) << " seconds";
 
     //log_file.open(log_path, std::ios::app);
     log_file << get_formatted_time();
@@ -747,7 +749,7 @@ int main()
     //log_file.close();
 
     // Detatching a thread is generally bad, but at worst it'll fail when trying to get the processed files from the index
-    std::thread scheduler_thread = std::thread(scheduler_function, std::ref(db_path), std::ref(index), std::ref(log_path));
+    std::thread scheduler_thread = std::thread(scheduler_function, std::ref(db_path), std::ref(index), std::ref(log_file));
     scheduler_thread.detach();
 
     // Accepting all incoming connections

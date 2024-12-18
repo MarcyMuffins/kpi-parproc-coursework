@@ -29,27 +29,27 @@ public:
 public:
 	template <typename task_t, typename... arguments>
 	inline size_t add_task(task_t&& task, arguments&&... parameters);
-	char get_status(size_t id);
+	//char get_status(size_t id);
 public:
 	thread_pool(const thread_pool& other) = delete;
 	thread_pool(thread_pool&& other) = delete;
 	thread_pool& operator=(const thread_pool& rhs) = delete;
 	thread_pool& operator=(thread_pool&& rhs) = delete;
 private:
-	struct TaskStatus {
+	/*struct TaskStatus {
 		enum Status {
 			Waiting,
 			Working,
 			Finished
 		} status;
-	};
+	};*/
 	mutable read_write_lock m_rw_lock;
 	mutable read_write_lock m_status_lock;
 	mutable read_write_lock m_print_lock;
 	mutable std::condition_variable_any m_task_waiter;
 	std::vector<std::thread> m_workers;
 	task_queue<std::function<void()>> m_tasks;
-	std::unordered_map<size_t, TaskStatus> m_task_status;
+	//std::unordered_map<size_t, TaskStatus> m_task_status;
 	std::unordered_map<size_t, std::chrono::time_point<std::chrono::system_clock>> m_debug_queue_time;
 	double m_wait_time = 0.0;
 	int m_avg_queue_len = 0;
@@ -84,7 +84,7 @@ void thread_pool::initialize(const size_t worker_count, bool debug_mode = false)
 		m_print_lock.unlock();
 	}
 	m_workers.reserve(worker_count);
-	m_task_status.clear();
+	//m_task_status.clear();
 	m_debug_queue_time.clear();
 	for (size_t id = 0; id < worker_count; id++)
 	{
@@ -114,7 +114,7 @@ void thread_pool::routine()
 		{
 			return;
 		}
-		m_task_status[task_id].status = thread_pool::TaskStatus::Status::Working;
+		//m_task_status[task_id].status = thread_pool::TaskStatus::Status::Working;
 		if (m_debug == true) {
 			m_print_lock.lock();
 			auto time_now = std::chrono::system_clock::now();
@@ -126,7 +126,7 @@ void thread_pool::routine()
 			m_print_lock.unlock();
 		}
 		task();
-		m_task_status[task_id].status = thread_pool::TaskStatus::Status::Finished;
+		//m_task_status[task_id].status = thread_pool::TaskStatus::Status::Finished;
 		if (m_debug == true) {
 			m_print_lock.lock();
 			m_tasks_processed++;
@@ -147,7 +147,7 @@ size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
 	auto bind = std::bind(std::forward<task_t>(task),
 		std::forward<arguments>(parameters)...);
 	size_t id = m_tasks.emplace(bind);
-	m_task_status[id].status = thread_pool::TaskStatus::Status::Waiting;
+	//m_task_status[id].status = thread_pool::TaskStatus::Status::Waiting;
 	m_avg_read_cnt++;
 	m_avg_queue_len += m_tasks.size();
 	m_task_waiter.notify_one();
@@ -160,7 +160,7 @@ size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
 	return id;
 }
 
-
+/*
 char thread_pool::get_status(size_t id)
 {
 	if (m_task_status.count(id) == 0) {
@@ -178,7 +178,7 @@ char thread_pool::get_status(size_t id)
 	}
 	return 'F';
 
-}
+}*/
 
 void thread_pool::terminate()
 {
@@ -235,11 +235,12 @@ inline void thread_pool::terminate_now()
 	{
 		write_lock _(m_rw_lock);
 		m_tasks.clear();
+		/*
 		for (int i = 0; i < m_tasks.task_count(); i++) {
 			if (m_task_status.at(i).status == TaskStatus::Status::Waiting) {
 				m_task_status.erase(i);
 			}
-		}
+		}*/
 	}
 	terminate();
 }

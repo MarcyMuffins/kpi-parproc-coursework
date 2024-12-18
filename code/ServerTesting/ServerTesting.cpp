@@ -221,17 +221,13 @@ int main() {
                 st[i].query = temp_stream.str();
             }
 
-            std::thread thread;
+            std::vector<std::thread> threads;
             for(int i = 0; i < client_count; i++){
-                thread = std::thread(client_function, i, std::ref(st));
-                thread.detach();
+                threads.emplace_back(client_function, i, std::ref(st));
             }
-            int count = 0;
-            while(count < client_count){
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-                count = 0;
-                for(const auto& i : st){
-                    count += i.done;
+            for(auto& thread: threads){
+                if(thread.joinable()){
+                    thread.join();
                 }
             }
             unsigned long long duration;
@@ -276,11 +272,11 @@ int main() {
             duration = duration / found_files_count;
             file_time += duration;
         }
-        queue_time = queue_time / 4;
-        queue_to_search_time = queue_to_search_time / 4;
-        search_time = search_time / 4;
-        filename_time = filename_time / 4;
-        file_time = file_time / 4;
+        queue_time = queue_time / repeat;
+        queue_to_search_time = queue_to_search_time / repeat;
+        search_time = search_time / repeat;
+        filename_time = filename_time / repeat;
+        file_time = file_time / repeat;
         //std::wcout << "All clients stopped." << std::endl;
         //std::wcout << "=== " << client_count << " CLIENTS ===" << std::endl;
         std::wcout << (double)(queue_time * 0.001) << ' ';

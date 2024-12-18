@@ -188,7 +188,7 @@ int main()
             closesocket(client_socket);
             return -1;
         }
-        // Extracting the 4 byte int from the buffer, little endian
+        // Extracting the 4 byte int from the buffer, big endian
         int n_files = (n_files_buf[0] << 24) | (n_files_buf[1] << 16) | (n_files_buf[2] << 8) | (n_files_buf[3]);
         if (n_files == 0){
             std::wcout << "No files found, exiting." << std::endl;
@@ -223,7 +223,7 @@ int main()
                 std::wcin >> choice;
             }
             unsigned char choice_buf[5] = {0};
-            // Encoding the 4 byte int into the buffer, little endian
+            // Encoding the 4 byte int into the buffer, big endian
             choice_buf[0] = (choice >> 24) & 0xFF;
             choice_buf[1] = (choice >> 16) & 0xFF;
             choice_buf[2] = (choice >> 8) & 0xFF;

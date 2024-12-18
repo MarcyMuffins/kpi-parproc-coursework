@@ -11,14 +11,12 @@ class server{
 }
 
 class thread_pool{
-     {field} -task_status : struct
      {field} -m_rw_lock : mutable std::shared_mutex
      {field} -m_status_lock : mutable std::shared_mutex
      {field} -m_print_lock : mutable std::shared_mutex
      {field} -m_task_waiter : mutable std::condition_variable_any
      {field} -m_workers : std::vector<std::thread>
      {field} -m_tasks : task_queue<std::function<std::string()>>
-     {field} -m_task_status : std::unordered_map<size_t, TaskStatus> 
      {field} -m_initialized : bool 
      {field} -m_terminated : bool
 
@@ -30,18 +28,6 @@ class thread_pool{
      {method} +working() : bool
      {method} +working_unsafe() : bool
      {method} +add_task(task_t&& task, arguments&&... parameters) : size_t
-     {method} +get_status(size_t id, std::string& res) : size_t
-}
-
-struct task_status{
-     {field} status : enum status
-     {field} result : std::string
-}
-
-enum status{
-     Waiting
-     Working
-     Finished
 }
 
 class task_queue{
@@ -68,8 +54,6 @@ class inverted_index{
 
 server::pool <.. thread_pool
 thread_pool::m_tasks <.. task_queue
-thread_pool::task_status <-- task_status
-task_status::status <-- status
 
 
 server::file_index <.. inverted_index
