@@ -13,8 +13,7 @@ using std::chrono::nanoseconds;
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 
-class thread_pool
-{
+class thread_pool {
 public:
 	inline thread_pool() = default;
 	inline ~thread_pool() { terminate(); }
@@ -60,21 +59,17 @@ private:
 	bool m_debug = false;
 };
 
-bool thread_pool::working() const
-{
+bool thread_pool::working() const {
 	read_lock _(m_rw_lock);
 	return working_unsafe();
 }
-bool thread_pool::working_unsafe() const
-{
+bool thread_pool::working_unsafe() const {
 	return m_initialized && !m_terminated;
 }
 
-void thread_pool::initialize(const size_t worker_count, bool debug_mode = false)
-{
+void thread_pool::initialize(const size_t worker_count, bool debug_mode = false) {
 	write_lock _(m_rw_lock);
-	if (m_initialized || m_terminated)
-	{
+	if (m_initialized || m_terminated) {
 		return;
 	}
 	m_debug = debug_mode;
@@ -86,17 +81,14 @@ void thread_pool::initialize(const size_t worker_count, bool debug_mode = false)
 	m_workers.reserve(worker_count);
 	//m_task_status.clear();
 	m_debug_queue_time.clear();
-	for (size_t id = 0; id < worker_count; id++)
-	{
+	for (size_t id = 0; id < worker_count; id++) {
 		m_workers.emplace_back(&thread_pool::routine, this);
 	}
 	m_initialized = !m_workers.empty();
 }
 
-void thread_pool::routine()
-{
-	while (true)
-	{
+void thread_pool::routine() {
+	while (true) {
 		bool task_acquired = false;
 		size_t task_id = -1;
 		size_t queue_len = 0;
@@ -110,8 +102,7 @@ void thread_pool::routine()
 				};
 			m_task_waiter.wait(_, wait_condition);
 		}
-		if (m_terminated && !task_acquired)
-		{
+		if (m_terminated && !task_acquired) {
 			return;
 		}
 		//m_task_status[task_id].status = thread_pool::TaskStatus::Status::Working;
@@ -136,8 +127,7 @@ void thread_pool::routine()
 	}
 }
 template <typename task_t, typename... arguments>
-size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
-{
+size_t thread_pool::add_task(task_t&& task, arguments&&... parameters) {
 	{
 		read_lock _(m_rw_lock);
 		if (!working_unsafe()) {
@@ -161,8 +151,7 @@ size_t thread_pool::add_task(task_t&& task, arguments&&... parameters)
 }
 
 /*
-char thread_pool::get_status(size_t id)
-{
+char thread_pool::get_status(size_t id) {
 	if (m_task_status.count(id) == 0) {
 		//std::wcout << L"No such task exists." << std::endl;
 		return 'N';
@@ -180,8 +169,7 @@ char thread_pool::get_status(size_t id)
 
 }*/
 
-void thread_pool::terminate()
-{
+void thread_pool::terminate() {
 	if (m_debug == true) {
 		m_print_lock.lock();
 		std::wcout << L"TRM: Terminate called." << std::endl;
@@ -189,17 +177,14 @@ void thread_pool::terminate()
 	}
 	{
 		write_lock _(m_rw_lock);
-		if (working_unsafe())
-		{
+		if (working_unsafe()) {
 			if (m_debug == true) {
 				m_print_lock.lock();
 				std::wcout << L"TRM: Waiting for tasks to finish." << std::endl;
 				m_print_lock.unlock();
 			}
 			m_terminated = true;
-		}
-		else
-		{
+		} else {
 			if (m_debug == true) {
 				debug_terminate();
 			}
@@ -211,8 +196,7 @@ void thread_pool::terminate()
 		}
 	}
 	m_task_waiter.notify_all();
-	for (std::thread& worker : m_workers)
-	{
+	for (std::thread& worker : m_workers) {
 		worker.join();
 	}
 	if (m_debug == true) {
@@ -224,8 +208,7 @@ void thread_pool::terminate()
 	m_initialized = false;
 }
 
-inline void thread_pool::terminate_now()
-{
+inline void thread_pool::terminate_now() {
 	if (m_debug == true) {
 		m_print_lock.lock();
 		std::wcout << L"TRM: Urgent termination called." << std::endl;
