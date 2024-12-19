@@ -35,7 +35,7 @@ The server consists of three main structures:
 11. Launch the needed `.exe` file from the command line.
 
 ### Java client
-1. Download OpenJDK 21 binaries from [the website.](https://adoptium.net/)
+1. Download and install OpenJDK 21 binaries from [the website.](https://adoptium.net/)
 2. Download and extract the repository to a location convenient to you.
 3. Navigate to `kpi-parproc-coursework-main\code\InvertedIndexClientJava`
 4. Open `cmd` or Powershell in the folder.
