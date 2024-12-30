@@ -24,6 +24,13 @@ using write_lock = std::unique_lock<read_write_lock>;
 
 class inverted_index {
 private:
+    //
+    // написати власну хеш таблицю
+    // м'ютекс на весь масив або кожний елемент (погано)
+    // розбивається масив сегментно для блокування
+    // 
+    // 
+    // 
 	//          word            list of files
 	std::map<std::wstring, std::vector<std::wstring>> dict;
 	//list of files already processed
